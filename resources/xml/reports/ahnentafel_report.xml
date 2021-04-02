@@ -52,7 +52,7 @@
 
 	<Doc pageSize="$pageSize">
 		<Header>
-			<Cell align="center" height="30" newline="1" style="header"><var var="I18N::translate('Ancestors of ')" /><GetPersonName id="$pid" /></Cell>
+			<Cell style="header" align="center" height="30" newline="1"><var var="I18N::translate('Ancestors of ')" /><GetPersonName id="$pid" /></Cell>
 			<Cell align="rightrtl" newline="1" style="pagenum"><var var="I18N::translate('Page')" /> <PageNum /> <var var="I18N::translate('of')" /> <TotalPages /></Cell>
 		</Header>
 		<Body>
@@ -105,7 +105,7 @@
 					</TextBox>
 					<!-- Sentence 1 Individual, name... -->
 					<TextBox height="12" newline="1">
-						<Text style="name"><GetPersonName id="" /> </Text>
+						<Text style="name"><GetPersonName id="" /></Text>
 						<if condition="$sources=='on'">
 							<!-- print level 1 sources -->
 							<RepeatTag tag="SOUR">
@@ -134,6 +134,7 @@
 								<SetVar name="source_exist" value="1" />
 							</RepeatTag>
 						</if>
+						<Text style="name">  </Text>
 						<!-- Individual, birth... -->
 						<Gedcom id="BIRT">
 							<Text style="text">
@@ -192,8 +193,8 @@
 							<!-- Individual, occupation... -->
 							<RepeatTag tag="OCCU">
 								<Text style="text">
-									<if condition="$gender=='m'"><var var="I18N::translate('His occupation was')" /> <GedcomValue tag="OCCU" level="1" /></if>
-									<if condition="$gender=='f'"><var var="I18N::translate('Her occupation was')" /> <GedcomValue tag="OCCU" level="1" /></if>
+									<if condition="$gender=='m'"> <var var="I18N::translate('His occupation was')" /> <GedcomValue tag="OCCU" level="1" /></if>
+									<if condition="$gender=='f'"> <var var="I18N::translate('Her occupation was')" /> <GedcomValue tag="OCCU" level="1" /></if>
 								</Text>
 								<if condition="$sources=='on'">
 									<RepeatTag tag="OCCU:SOUR">
@@ -275,10 +276,8 @@
 									</if>
 									<Text style="text">
 										<if condition="$spid!=''"><GetPersonName id="$spid" /></if>
-										<if condition="@DATE!=''"><var var=" " /> <GedcomValue tag="DATE" level="2" />
-											<if condition="@PLAC==''"> </if>
-										</if>
-										<if condition="@PLAC!=''"><var var="I18N::translate(' in ')" /> <GedcomValue tag="PLAC" level="2" /></if>
+										<if condition="@DATE!=''"><var var=" " /> <GedcomValue tag="DATE" level="2" /></if>
+										<if condition="@PLAC!=''"><var var="I18N::translate(' in ')" /><GedcomValue tag="PLAC" level="2" /></if>
 										<if condition="((@desc=='Y') or (@DATE=='' and @PLAC=='')) and ($spid=='')"><var var="I18N::translate(' but the details are unknown')" /></if>.
 									</Text>
 								</if>
@@ -421,7 +420,7 @@
 											<if condition="$familyChildNumber==20"><SetVar name="familyChildRoman" value="xx" /></if>
 											<TextBox left="25" height="20" newline="1">
 												<Text style="label1"><var var="familyChildRoman" /></Text>
-												<Text style="namech">  <GetPersonName id="" /> </Text>
+												<Text style="namech">  <GetPersonName id="" /></Text>
 												<if condition="$sources=='on'">
 													<RepeatTag tag="SOUR">
 														<Footnote>

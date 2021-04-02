@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -22,12 +22,15 @@ namespace Fisharebest\Webtrees\Services;
 use Closure;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\Module\LocationListModule;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\FlashMessages;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Module\AhnentafelReportModule;
 use Fisharebest\Webtrees\Module\AlbumModule;
 use Fisharebest\Webtrees\Module\AncestorsChartModule;
-use Fisharebest\Webtrees\Module\BatchUpdateModule;
+use Fisharebest\Webtrees\Module\AustrianHistoricEvents;
+use Fisharebest\Webtrees\Module\AustrianPresidents;
 use Fisharebest\Webtrees\Module\BingWebmasterToolsModule;
 use Fisharebest\Webtrees\Module\BirthDeathMarriageReportModule;
 use Fisharebest\Webtrees\Module\BirthReportModule;
@@ -48,6 +51,7 @@ use Fisharebest\Webtrees\Module\ColorsTheme;
 use Fisharebest\Webtrees\Module\CompactTreeChartModule;
 use Fisharebest\Webtrees\Module\ContactsFooterModule;
 use Fisharebest\Webtrees\Module\CustomCssJsModule;
+use Fisharebest\Webtrees\Module\CzechMonarchsAndPresidents;
 use Fisharebest\Webtrees\Module\DeathReportModule;
 use Fisharebest\Webtrees\Module\DescendancyChartModule;
 use Fisharebest\Webtrees\Module\DescendancyModule;
@@ -62,6 +66,16 @@ use Fisharebest\Webtrees\Module\FamilyTreeFavoritesModule;
 use Fisharebest\Webtrees\Module\FamilyTreeNewsModule;
 use Fisharebest\Webtrees\Module\FamilyTreeStatisticsModule;
 use Fisharebest\Webtrees\Module\FanChartModule;
+use Fisharebest\Webtrees\Module\FixCemeteryTag;
+use Fisharebest\Webtrees\Module\FixDuplicateLinks;
+use Fisharebest\Webtrees\Module\FixMissingDeaths;
+use Fisharebest\Webtrees\Module\FixMissingMarriedNames;
+use Fisharebest\Webtrees\Module\FixNameSlashesAndSpaces;
+use Fisharebest\Webtrees\Module\FixNameTags;
+use Fisharebest\Webtrees\Module\FixPlaceNames;
+use Fisharebest\Webtrees\Module\FixPrimaryTag;
+use Fisharebest\Webtrees\Module\FixSearchAndReplace;
+use Fisharebest\Webtrees\Module\FrenchHistory;
 use Fisharebest\Webtrees\Module\FrequentlyAskedQuestionsModule;
 use Fisharebest\Webtrees\Module\GoogleAnalyticsModule;
 use Fisharebest\Webtrees\Module\GoogleWebmasterToolsModule;
@@ -134,13 +148,16 @@ use Fisharebest\Webtrees\Module\LanguageSpanish;
 use Fisharebest\Webtrees\Module\LanguageSundanese;
 use Fisharebest\Webtrees\Module\LanguageSwahili;
 use Fisharebest\Webtrees\Module\LanguageSwedish;
+use Fisharebest\Webtrees\Module\LanguageTagalog;
 use Fisharebest\Webtrees\Module\LanguageTamil;
 use Fisharebest\Webtrees\Module\LanguageTatar;
 use Fisharebest\Webtrees\Module\LanguageThai;
 use Fisharebest\Webtrees\Module\LanguageTurkish;
 use Fisharebest\Webtrees\Module\LanguageUkranian;
+use Fisharebest\Webtrees\Module\LanguageUrdu;
 use Fisharebest\Webtrees\Module\LanguageVietnamese;
 use Fisharebest\Webtrees\Module\LanguageYiddish;
+use Fisharebest\Webtrees\Module\RedirectLegacyUrlsModule;
 use Fisharebest\Webtrees\Module\LifespansChartModule;
 use Fisharebest\Webtrees\Module\ListsMenuModule;
 use Fisharebest\Webtrees\Module\LoggedInUsersModule;
@@ -155,6 +172,7 @@ use Fisharebest\Webtrees\Module\ModuleAnalyticsInterface;
 use Fisharebest\Webtrees\Module\ModuleBlockInterface;
 use Fisharebest\Webtrees\Module\ModuleChartInterface;
 use Fisharebest\Webtrees\Module\ModuleCustomInterface;
+use Fisharebest\Webtrees\Module\ModuleDataFixInterface;
 use Fisharebest\Webtrees\Module\ModuleFooterInterface;
 use Fisharebest\Webtrees\Module\ModuleHistoricEventsInterface;
 use Fisharebest\Webtrees\Module\ModuleInterface;
@@ -213,11 +231,12 @@ use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\Webtrees;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use stdClass;
 use Throwable;
 
 use function app;
+use function str_contains;
+use function strlen;
 
 /**
  * Functions for managing and maintaining modules.
@@ -229,6 +248,7 @@ class ModuleService
         ModuleAnalyticsInterface::class,
         ModuleBlockInterface::class,
         ModuleChartInterface::class,
+        ModuleDataFixInterface::class,
         ModuleFooterInterface::class,
         ModuleHistoricEventsInterface::class,
         ModuleLanguageInterface::class,
@@ -264,7 +284,8 @@ class ModuleService
         'GEDFact_assistant'       => CensusAssistantModule::class,
         'ahnentafel_report'       => AhnentafelReportModule::class,
         'ancestors_chart'         => AncestorsChartModule::class,
-        'batch_update'            => BatchUpdateModule::class,
+        'austrian-history'        => AustrianHistoricEvents::class,
+        'austrian-presidents'     => AustrianPresidents::class,
         'bdm_report'              => BirthDeathMarriageReportModule::class,
         'bing-webmaster-tools'    => BingWebmasterToolsModule::class,
         'birth_report'            => BirthReportModule::class,
@@ -283,6 +304,7 @@ class ModuleService
         'colors'                  => ColorsTheme::class,
         'compact-chart'           => CompactTreeChartModule::class,
         'contact-links'           => ContactsFooterModule::class,
+        'czech-leaders'           => CzechMonarchsAndPresidents::class,
         'custom-css-js'           => CustomCssJsModule::class,
         'death_report'            => DeathReportModule::class,
         'descendancy'             => DescendancyModule::class,
@@ -297,6 +319,16 @@ class ModuleService
         'family_nav'              => FamilyNavigatorModule::class,
         'fan_chart'               => FanChartModule::class,
         'faq'                     => FrequentlyAskedQuestionsModule::class,
+        'french-history'          => FrenchHistory::class,
+        'fix-add-death'           => FixMissingDeaths::class,
+        'fix-add-marr-names'      => FixMissingMarriedNames::class,
+        'fix-ceme-tag'            => FixCemeteryTag::class,
+        'fix-duplicate-links'     => FixDuplicateLinks::class,
+        'fix-name-slashes-spaces' => FixNameSlashesAndSpaces::class,
+        'fix-name-tags'           => FixNameTags::class,
+        'fix-place-names'         => FixPlaceNames::class,
+        'fix-prim-tag'            => FixPrimaryTag::class,
+        'fix-search-and-replace'  => FixSearchAndReplace::class,
         'gedcom_block'            => WelcomeBlockModule::class,
         'gedcom_favorites'        => FamilyTreeFavoritesModule::class,
         'gedcom_news'             => FamilyTreeNewsModule::class,
@@ -311,8 +343,8 @@ class ModuleService
         'individual_report'       => IndividualReportModule::class,
         'language-af'             => LanguageAfrikaans::class,
         'language-ar'             => LanguageArabic::class,
+        'language-bg'             => LanguageBulgarian::class,
         'language-bs'             => LanguageBosnian::class,
-        'language-bu'             => LanguageBulgarian::class,
         'language-ca'             => LanguageCatalan::class,
         'language-cs'             => LanguageCzech::class,
         'language-da'             => LanguageDanish::class,
@@ -369,16 +401,20 @@ class ModuleService
         'language-sw'             => LanguageSwahili::class,
         'language-ta'             => LanguageTamil::class,
         'language-th'             => LanguageThai::class,
+        'language-tl'             => LanguageTagalog::class,
         'language-tr'             => LanguageTurkish::class,
         'language-tt'             => LanguageTatar::class,
         'language-uk'             => LanguageUkranian::class,
+        'language-ur'             => LanguageUrdu::class,
         'language-vi'             => LanguageVietnamese::class,
         'language-yi'             => LanguageYiddish::class,
         'language-zh-Hans'        => LanguageChineseSimplified::class,
         'language-zh-Hant'        => LanguageChineseTraditional::class,
+        'legacy-urls'             => RedirectLegacyUrlsModule::class,
         'lifespans_chart'         => LifespansChartModule::class,
         'lightbox'                => AlbumModule::class,
         'lists-menu'              => ListsMenuModule::class,
+        'location_list'           => LocationListModule::class,
         'logged_in'               => LoggedInUsersModule::class,
         'login_block'             => LoginBlockModule::class,
         'marriage_report'         => MarriageReportModule::class,
@@ -479,20 +515,20 @@ class ModuleService
 
         switch ($interface) {
             case ModuleFooterInterface::class:
-                return $modules->sort($this->footerSorter());
+                return $modules->sort($this->footerComparator());
 
             case ModuleMenuInterface::class:
-                return $modules->sort($this->menuSorter());
+                return $modules->sort($this->menuComparator());
 
             case ModuleSidebarInterface::class:
-                return $modules->sort($this->sidebarSorter());
+                return $modules->sort($this->sidebarComparator());
 
             case ModuleTabInterface::class:
-                return $modules->sort($this->tabSorter());
+                return $modules->sort($this->tabComparator());
 
             default:
                 if ($sort) {
-                    return $modules->sort($this->moduleSorter());
+                    return $modules->sort($this->moduleComparator());
                 }
 
                 return $modules;
@@ -508,7 +544,7 @@ class ModuleService
      */
     public function all(bool $include_disabled = false): Collection
     {
-        return app('cache.array')->remember('all-modules', function (): Collection {
+        return Registry::cache()->array()->remember('all-modules', function (): Collection {
             // Modules have a default status, order etc.
             // We can override these from database settings.
             $module_info = DB::table('module')
@@ -587,7 +623,13 @@ class ModuleService
                 // This also allows us to ignore modules called "foo.example" and "foo.disable"
                 $module_name = basename(dirname($filename));
 
-                return !Str::contains($module_name, ['.', ' ', '[', ']']) && Str::length($module_name) <= 30;
+                foreach (['.', ' ', '[', ']'] as $character) {
+                    if (str_contains($module_name, $character)) {
+                        return false;
+                    }
+                }
+
+                return strlen($module_name) <= 30;
             })
             ->map(static function (string $filename): ?ModuleCustomInterface {
                 try {
@@ -683,7 +725,7 @@ class ModuleService
      *
      * @return Closure
      */
-    private function footerSorter(): Closure
+    private function footerComparator(): Closure
     {
         return static function (ModuleFooterInterface $x, ModuleFooterInterface $y): int {
             return $x->getFooterOrder() <=> $y->getFooterOrder();
@@ -695,7 +737,7 @@ class ModuleService
      *
      * @return Closure
      */
-    private function menuSorter(): Closure
+    private function menuComparator(): Closure
     {
         return static function (ModuleMenuInterface $x, ModuleMenuInterface $y): int {
             return $x->getMenuOrder() <=> $y->getMenuOrder();
@@ -707,7 +749,7 @@ class ModuleService
      *
      * @return Closure
      */
-    private function sidebarSorter(): Closure
+    private function sidebarComparator(): Closure
     {
         return static function (ModuleSidebarInterface $x, ModuleSidebarInterface $y): int {
             return $x->getSidebarOrder() <=> $y->getSidebarOrder();
@@ -719,7 +761,7 @@ class ModuleService
      *
      * @return Closure
      */
-    private function tabSorter(): Closure
+    private function tabComparator(): Closure
     {
         return static function (ModuleTabInterface $x, ModuleTabInterface $y): int {
             return $x->getTabOrder() <=> $y->getTabOrder();
@@ -734,13 +776,13 @@ class ModuleService
      *
      * @return Closure
      */
-    private function moduleSorter(): Closure
+    private function moduleComparator(): Closure
     {
         return static function (ModuleInterface $x, ModuleInterface $y): int {
             $title1 = $x instanceof ModuleLanguageInterface ? $x->locale()->endonymSortable() : $x->title();
             $title2 = $y instanceof ModuleLanguageInterface ? $y->locale()->endonymSortable() : $y->title();
 
-            return I18N::strcasecmp($title1, $title2);
+            return I18N::comparator()($title1, $title2);
         };
     }
 
@@ -817,18 +859,18 @@ class ModuleService
     }
 
     /**
-     * @return string[]
+     * @return Collection<string>
      */
-    public function componentsWithAccess(): array
+    public function componentsWithAccess(): Collection
     {
-        return self::COMPONENTS_WITH_ACCESS;
+        return new Collection(self::COMPONENTS_WITH_ACCESS);
     }
 
     /**
-     * @return string[]
+     * @return Collection<string>
      */
-    public function componentsWithOrder(): array
+    public function componentsWithOrder(): Collection
     {
-        return self::COMPONENTS_WITH_SORT;
+        return new Collection(self::COMPONENTS_WITH_SORT);
     }
 }

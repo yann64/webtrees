@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,19 +12,22 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 namespace Fisharebest\Webtrees\Module\InteractiveTree;
 
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Tree;
 use Illuminate\Support\Collection;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Class TreeView
@@ -51,7 +54,7 @@ class TreeView
      * @param Individual $individual  Draw the chart for this individual
      * @param int        $generations number of generations to draw
      *
-     * @return string[]  HTML and Javascript
+     * @return array<string>  HTML and Javascript
      */
     public function drawViewport(Individual $individual, int $generations): array
     {
@@ -88,7 +91,7 @@ class TreeView
                 case 'c':
                     $families = Collection::make(explode(',', $json_request))
                         ->map(static function (string $xref) use ($tree): ?Family {
-                            return Family::getInstance($xref, $tree);
+                            return Registry::familyFactory()->make($xref, $tree);
                         })
                         ->filter();
 
@@ -98,7 +101,7 @@ class TreeView
                 case 'p':
                     [$xref, $order] = explode('@', $json_request);
 
-                    $family = Family::getInstance($xref, $tree);
+                    $family = Registry::familyFactory()->make($xref, $tree);
                     if ($family instanceof Family) {
                         // Prefer the paternal line
                         $parent = $family->husband() ?? $family->wife();
@@ -112,7 +115,7 @@ class TreeView
             }
         }
 
-        return json_encode($r);
+        return json_encode($r, JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -389,7 +392,7 @@ class TreeView
     /**
      * Draw a vertical line
      *
-     * @param string $line A parameter that set how to draw this line with auto-redimensionning capabilities
+     * @param string $line A parameter that set how to draw this line with auto-resizing capabilities
      *
      * @return string
      * WARNING : some tricky hacks are required in CSS to ensure cross-browser compliance

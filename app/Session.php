@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -46,7 +46,9 @@ use const PHP_VERSION_ID;
  */
 class Session
 {
-    private const SESSION_NAME = 'WT2_SESSION';
+    // Use the secure prefix with HTTPS.
+    private const SESSION_NAME        = 'WT2_SESSION';
+    private const SECURE_SESSION_NAME = '__Secure-WT-ID';
 
     /**
      * Start a session
@@ -62,13 +64,13 @@ class Session
 
         $url    = $request->getAttribute('base_url');
         $secure = parse_url($url, PHP_URL_SCHEME) === 'https';
-        $domain = parse_url($url, PHP_URL_HOST);
-        $path   = parse_url($url, PHP_URL_PATH) ?? '';
+        $domain = (string) parse_url($url, PHP_URL_HOST);
+        $path   = (string) parse_url($url, PHP_URL_PATH);
 
         // Paths containing UTF-8 characters need special handling.
         $path = implode('/', array_map('rawurlencode', explode('/', $path)));
 
-        session_name(self::SESSION_NAME);
+        session_name($secure ? self::SECURE_SESSION_NAME : self::SESSION_NAME);
         session_register_shutdown();
         // Since PHP 7.3, we can set "SameSite: Lax" to help protect against CSRF attacks.
         if (PHP_VERSION_ID > 70300) {

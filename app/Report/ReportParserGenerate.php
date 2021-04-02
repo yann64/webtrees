@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -23,6 +23,7 @@ use DomainException;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Carbon;
 use Fisharebest\Webtrees\Date;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Filter;
 use Fisharebest\Webtrees\Functions\Functions;
@@ -32,7 +33,6 @@ use Fisharebest\Webtrees\GedcomTag;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Log;
-use Fisharebest\Webtrees\Media;
 use Fisharebest\Webtrees\MediaFile;
 use Fisharebest\Webtrees\Note;
 use Fisharebest\Webtrees\Place;
@@ -42,7 +42,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Str;
-use League\Flysystem\FilesystemInterface;
+use League\Flysystem\FilesystemOperator;
 use LogicException;
 use stdClass;
 use Symfony\Component\Cache\Adapter\NullAdapter;
@@ -73,11 +73,11 @@ use function preg_split;
 use function reset;
 use function round;
 use function sprintf;
+use function str_contains;
 use function str_replace;
+use function str_starts_with;
 use function strip_tags;
 use function strlen;
-use function strpos;
-use function strstr;
 use function strtoupper;
 use function substr;
 use function trim;
@@ -184,24 +184,24 @@ class ReportParserGenerate extends ReportParserBase
     /** @var Tree The current tree */
     private $tree;
 
-    /** @var FilesystemInterface */
+    /** @var FilesystemOperator */
     private $data_filesystem;
 
     /**
      * Create a parser for a report
      *
-     * @param string              $report The XML filename
-     * @param AbstractRenderer    $report_root
-     * @param string[][]          $vars
-     * @param Tree                $tree
-     * @param FilesystemInterface $data_filesystem
+     * @param string             $report The XML filename
+     * @param AbstractRenderer   $report_root
+     * @param string[][]         $vars
+     * @param Tree               $tree
+     * @param FilesystemOperator $data_filesystem
      */
     public function __construct(
         string $report,
         AbstractRenderer $report_root,
         array $vars,
         Tree $tree,
-        FilesystemInterface $data_filesystem
+        FilesystemOperator $data_filesystem
     ) {
         $this->report          = $report;
         $this->report_root     = $report_root;
@@ -276,7 +276,7 @@ class ReportParserGenerate extends ReportParserBase
      *
      * @return void
      */
-    protected function characterData($parser, $data): void
+    protected function characterData($parser, string $data): void
     {
         if ($this->print_data && $this->process_gedcoms === 0 && $this->process_ifs === 0 && $this->process_repeats === 0) {
             $this->current_element->addText($data);
@@ -603,8 +603,8 @@ class ReportParserGenerate extends ReportParserBase
         $this->print_data         = true;
 
         $this->current_element = $this->report_root->createCell(
-            $width,
-            $height,
+            (int) $width,
+            (int) $height,
             $border,
             $align,
             $bgcolor,
@@ -681,7 +681,7 @@ class ReportParserGenerate extends ReportParserBase
         $tags      = explode(':', $tag);
         $newgedrec = '';
         if (count($tags) < 2) {
-            $tmp       = GedcomRecord::getInstance($attrs['id'], $this->tree);
+            $tmp       = Registry::gedcomRecordFactory()->make($attrs['id'], $this->tree);
             $newgedrec = $tmp ? $tmp->privatizeGedcom(Auth::accessLevel($this->tree)) : '';
         }
         if (empty($newgedrec)) {
@@ -692,14 +692,14 @@ class ReportParserGenerate extends ReportParserBase
                     if (isset($this->vars[$match[1]]['gedcom'])) {
                         $newgedrec = $this->vars[$match[1]]['gedcom'];
                     } else {
-                        $tmp       = GedcomRecord::getInstance($match[1], $this->tree);
+                        $tmp       = Registry::gedcomRecordFactory()->make($match[1], $this->tree);
                         $newgedrec = $tmp ? $tmp->privatizeGedcom(Auth::accessLevel($this->tree)) : '';
                     }
                 } else {
                     if (preg_match('/@(.+)/', $tag, $match)) {
                         $gmatch = [];
                         if (preg_match("/\d $match[1] @([^@]+)@/", $tgedrec, $gmatch)) {
-                            $tmp       = GedcomRecord::getInstance($gmatch[1], $this->tree);
+                            $tmp       = Registry::gedcomRecordFactory()->make($gmatch[1], $this->tree);
                             $newgedrec = $tmp ? $tmp->privatizeGedcom(Auth::accessLevel($this->tree)) : '';
                             $tgedrec   = $newgedrec;
                         } else {
@@ -959,7 +959,7 @@ class ReportParserGenerate extends ReportParserBase
             }
         }
         if (!empty($id)) {
-            $record = GedcomRecord::getInstance($id, $this->tree);
+            $record = Registry::gedcomRecordFactory()->make($id, $this->tree);
             if ($record === null) {
                 return;
             }
@@ -967,37 +967,11 @@ class ReportParserGenerate extends ReportParserBase
                 $this->current_element->addText(I18N::translate('Private'));
             } else {
                 $name = $record->fullName();
-                $name = preg_replace(
-                    [
-                        '/<span class="starredname">/',
-                        '/<\/span><\/span>/',
-                        '/<\/span>/',
-                    ],
-                    [
-                        '«',
-                        '',
-                        '»',
-                    ],
-                    $name
-                );
                 $name = strip_tags($name);
                 if (!empty($attrs['truncate'])) {
                     $name = Str::limit($name, (int) $attrs['truncate'], I18N::translate('…'));
                 } else {
-                    $addname = $record->alternateName();
-                    $addname = preg_replace(
-                        [
-                            '/<span class="starredname">/',
-                            '/<\/span><\/span>/',
-                            '/<\/span>/',
-                        ],
-                        [
-                            '«',
-                            '',
-                            '»',
-                        ],
-                        $addname
-                    );
+                    $addname = (string) $record->alternateName();
                     $addname = strip_tags($addname);
                     if (!empty($addname)) {
                         $name .= ' ' . $addname;
@@ -1144,7 +1118,7 @@ class ReportParserGenerate extends ReportParserBase
                     // Privacy check - is this a link, and are we allowed to view the linked object?
                     $subrecord = Functions::getSubRecord($level, "$level $t", $subrec, $i);
                     if (preg_match('/^\d ' . Gedcom::REGEX_TAG . ' @(' . Gedcom::REGEX_XREF . ')@/', $subrecord, $xref_match)) {
-                        $linked_object = GedcomRecord::getInstance($xref_match[1], $this->tree);
+                        $linked_object = Registry::gedcomRecordFactory()->make($xref_match[1], $this->tree);
                         if ($linked_object && !$linked_object->canShow()) {
                             continue;
                         }
@@ -1177,7 +1151,7 @@ class ReportParserGenerate extends ReportParserBase
             }
             //-- read the xml from the file
             $lines = file($this->report);
-            while (strpos($lines[$lineoffset + $this->repeat_bytes], '<RepeatTag') === false) {
+            while (!str_contains($lines[$lineoffset + $this->repeat_bytes], '<RepeatTag')) {
                 $lineoffset--;
             }
             $lineoffset++;
@@ -1186,9 +1160,9 @@ class ReportParserGenerate extends ReportParserBase
             // RepeatTag Level counter
             $count = 1;
             while (0 < $count) {
-                if (strstr($lines[$line_nr], '<RepeatTag') !== false) {
+                if (str_contains($lines[$line_nr], '<RepeatTag')) {
                     $count++;
-                } elseif (strstr($lines[$line_nr], '</RepeatTag') !== false) {
+                } elseif (str_contains($lines[$line_nr], '</RepeatTag')) {
                     $count--;
                 }
                 if (0 < $count) {
@@ -1328,7 +1302,7 @@ class ReportParserGenerate extends ReportParserBase
             $tag = $this->vars[$match[1]]['id'];
         }
 
-        $record = GedcomRecord::getInstance($id, $this->tree);
+        $record = Registry::gedcomRecordFactory()->make($id, $this->tree);
         if (empty($attrs['diff']) && !empty($id)) {
             $facts = $record->facts([], true);
             $this->repeats = [];
@@ -1369,7 +1343,7 @@ class ReportParserGenerate extends ReportParserBase
 
             //-- read the xml from the file
             $lines = file($this->report);
-            while ($lineoffset + $this->repeat_bytes > 0 && strpos($lines[$lineoffset + $this->repeat_bytes], '<Facts ') === false) {
+            while ($lineoffset + $this->repeat_bytes > 0 && !str_contains($lines[$lineoffset + $this->repeat_bytes], '<Facts ')) {
                 $lineoffset--;
             }
             $lineoffset++;
@@ -1505,7 +1479,7 @@ class ReportParserGenerate extends ReportParserBase
             $value = (string) $expression_language->evaluate($value);
         }
 
-        if (strpos($value, '@') !== false) {
+        if (str_contains($value, '@')) {
             $value = '';
         }
         $this->vars[$name]['id'] = $value;
@@ -1609,7 +1583,7 @@ class ReportParserGenerate extends ReportParserBase
         if (preg_match('/[0-9] (.+) @(.+)@/', $this->gedrec, $match)) {
             $id = $match[2];
         }
-        $record = GedcomRecord::getInstance($id, $this->tree);
+        $record = Registry::gedcomRecordFactory()->make($id, $this->tree);
         if ($record && $record->canShow()) {
             $this->print_data_stack[] = $this->print_data;
             $this->print_data         = true;
@@ -1711,7 +1685,7 @@ class ReportParserGenerate extends ReportParserBase
         $width  = (float) ($attrs['width'] ?? 0.0);
         $height = (float) ($attrs['height'] ?? 0.0);
 
-        $person     = Individual::getInstance($id, $this->tree);
+        $person     = Registry::individualFactory()->make($id, $this->tree);
         $media_file = $person->findHighlightedMediaFile();
 
         if ($media_file instanceof MediaFile && $media_file->fileExists($this->data_filesystem)) {
@@ -1763,7 +1737,7 @@ class ReportParserGenerate extends ReportParserBase
         if ($file === '@FILE') {
             $match = [];
             if (preg_match("/\d OBJE @(.+)@/", $this->gedrec, $match)) {
-                $mediaobject = Media::getInstance($match[1], $this->tree);
+                $mediaobject = Registry::mediaFactory()->make($match[1], $this->tree);
                 $media_file  = $mediaobject->firstImageFile();
 
                 if ($media_file instanceof MediaFile && $media_file->fileExists($this->data_filesystem)) {
@@ -1903,7 +1877,7 @@ class ReportParserGenerate extends ReportParserBase
 
                 $this->list = [];
                 foreach ($xrefs as $xref) {
-                    $this->list[] = GedcomRecord::getInstance($xref, $this->tree);
+                    $this->list[] = Registry::gedcomRecordFactory()->make($xref, $this->tree);
                 }
                 break;
             case 'individual':
@@ -1913,7 +1887,7 @@ class ReportParserGenerate extends ReportParserBase
                     ->distinct();
 
                 foreach ($attrs as $attr => $value) {
-                    if (strpos($attr, 'filter') === 0 && $value) {
+                    if (str_starts_with($attr, 'filter') && $value !== '') {
                         $value = $this->substituteVars($value, false);
                         // Convert the various filters into SQL
                         if (preg_match('/^(\w+):DATE (LTE|GTE) (.+)$/', $value, $match)) {
@@ -1944,7 +1918,7 @@ class ReportParserGenerate extends ReportParserBase
                             // Search the DB only if there is any name supplied
                             $names = explode(' ', $match[1]);
                             foreach ($names as $n => $name) {
-                                $query->whereContains($attr . '.n_full', $name);
+                                $query->where($attr . '.n_full', 'LIKE', '%' . addcslashes($name, '\\%_') . '%');
                             }
 
                             // This filter has been fully processed
@@ -1970,13 +1944,13 @@ class ReportParserGenerate extends ReportParserBase
                                         ->on($attr . 'b.p_file', '=', $attr . 'a.pl_file')
                                         ->on($attr . 'b.p_id', '=', $attr . 'a.pl_p_id');
                                 })
-                                ->whereContains($attr . 'b.p_place', $match[1]);
+                                ->where($attr . 'b.p_place', 'LIKE', '%' . addcslashes($match[1], '\\%_') . '%');
                         } elseif (preg_match('/^(\w*):(\w+) CONTAINS (.+)$/', $value, $match)) {
                             // Don't unset this filter. This is just initial filtering for performance
                             $match[3] = strtr($match[3], ['\\' => '\\\\', '%'  => '\\%', '_'  => '\\_', ' ' => '%']);
                             $like = "%\n1 " . $match[1] . "%\n2 " . $match[2] . '%' . $match[3] . '%';
                             $query->where('i_gedcom', 'LIKE', $like);
-                        } elseif (preg_match('/^(\w+) CONTAINS (.+)$/', $value, $match)) {
+                        } elseif (preg_match('/^(\w+) CONTAINS (.*)$/', $value, $match)) {
                             // Don't unset this filter. This is just initial filtering for performance
                             $match[2] = strtr($match[2], ['\\' => '\\\\', '%'  => '\\%', '_'  => '\\_', ' ' => '%']);
                             $like = "%\n1 " . $match[1] . '%' . $match[2] . '%';
@@ -1988,7 +1962,7 @@ class ReportParserGenerate extends ReportParserBase
                 $this->list = [];
 
                 foreach ($query->get() as $row) {
-                    $this->list[$row->xref] = Individual::getInstance($row->xref, $this->tree, $row->gedcom);
+                    $this->list[$row->xref] = Registry::individualFactory()->make($row->xref, $this->tree, $row->gedcom);
                 }
                 break;
 
@@ -1999,7 +1973,7 @@ class ReportParserGenerate extends ReportParserBase
                     ->distinct();
 
                 foreach ($attrs as $attr => $value) {
-                    if (strpos($attr, 'filter') === 0 && $value) {
+                    if (str_starts_with($attr, 'filter') && $value !== '') {
                         $value = $this->substituteVars($value, false);
                         // Convert the various filters into SQL
                         if (preg_match('/^(\w+):DATE (LTE|GTE) (.+)$/', $value, $match)) {
@@ -2044,7 +2018,7 @@ class ReportParserGenerate extends ReportParserBase
                                 if ($match[1] != '') {
                                     $names = explode(' ', $match[1]);
                                     foreach ($names as $n => $name) {
-                                        $query->whereContains($attr . '.n_full', $name);
+                                        $query->where($attr . '.n_full', 'LIKE', '%' . addcslashes($name, '\\%_') . '%');
                                     }
                                 }
                             }
@@ -2064,7 +2038,7 @@ class ReportParserGenerate extends ReportParserBase
                                         ->on($attr . 'b.p_file', '=', $attr . 'a.pl_file')
                                         ->on($attr . 'b.p_id', '=', $attr . 'a.pl_p_id');
                                 })
-                                ->whereContains($attr . 'b.p_place', $match[1]);
+                                ->where($attr . 'b.p_place', 'LIKE', '%' . addcslashes($match[1], '\\%_') . '%');
                         } elseif (preg_match('/^(\w*):(\w+) CONTAINS (.+)$/', $value, $match)) {
                             // Don't unset this filter. This is just initial filtering for performance
                             $match[3] = strtr($match[3], ['\\' => '\\\\', '%'  => '\\%', '_'  => '\\_', ' ' => '%']);
@@ -2082,7 +2056,7 @@ class ReportParserGenerate extends ReportParserBase
                 $this->list = [];
 
                 foreach ($query->get() as $row) {
-                    $this->list[$row->xref] = Family::getInstance($row->xref, $this->tree, $row->gedcom);
+                    $this->list[$row->xref] = Registry::familyFactory()->make($row->xref, $this->tree, $row->gedcom);
                 }
                 break;
 
@@ -2287,7 +2261,7 @@ class ReportParserGenerate extends ReportParserBase
             }
             //-- read the xml from the file
             $lines = file($this->report);
-            while ((strpos($lines[$lineoffset + $this->repeat_bytes], '<List') === false) && (($lineoffset + $this->repeat_bytes) > 0)) {
+            while ((!str_contains($lines[$lineoffset + $this->repeat_bytes], '<List')) && (($lineoffset + $this->repeat_bytes) > 0)) {
                 $lineoffset--;
             }
             $lineoffset++;
@@ -2296,9 +2270,9 @@ class ReportParserGenerate extends ReportParserBase
             // List Level counter
             $count = 1;
             while (0 < $count) {
-                if (strpos($lines[$line_nr], '<List') !== false) {
+                if (str_contains($lines[$line_nr], '<List')) {
                     $count++;
-                } elseif (strpos($lines[$line_nr], '</List') !== false) {
+                } elseif (str_contains($lines[$line_nr], '</List')) {
                     $count--;
                 }
                 if (0 < $count) {
@@ -2417,7 +2391,7 @@ class ReportParserGenerate extends ReportParserBase
         }
 
         $this->list = [];
-        $person     = Individual::getInstance($id, $this->tree);
+        $person     = Registry::individualFactory()->make($id, $this->tree);
         if ($person instanceof Individual) {
             $this->list[$id] = $person;
             switch ($group) {
@@ -2514,7 +2488,7 @@ class ReportParserGenerate extends ReportParserBase
             }
             //-- read the xml from the file
             $lines = file($this->report);
-            while ((strpos($lines[$lineoffset + $this->repeat_bytes], '<Relatives') === false) && (($lineoffset + $this->repeat_bytes) > 0)) {
+            while (!str_contains($lines[$lineoffset + $this->repeat_bytes], '<Relatives') && $lineoffset + $this->repeat_bytes > 0) {
                 $lineoffset--;
             }
             $lineoffset++;
@@ -2523,9 +2497,9 @@ class ReportParserGenerate extends ReportParserBase
             // Relatives Level counter
             $count = 1;
             while (0 < $count) {
-                if (strpos($lines[$line_nr], '<Relatives') !== false) {
+                if (str_contains($lines[$line_nr], '<Relatives')) {
                     $count++;
-                } elseif (strpos($lines[$line_nr], '</Relatives') !== false) {
+                } elseif (str_contains($lines[$line_nr], '</Relatives')) {
                     $count--;
                 }
                 if (0 < $count) {
@@ -2546,7 +2520,7 @@ class ReportParserGenerate extends ReportParserBase
                 if (isset($value->generation)) {
                     $this->generation = $value->generation;
                 }
-                $tmp          = GedcomRecord::getInstance((string) $xref, $this->tree);
+                $tmp          = Registry::gedcomRecordFactory()->make((string) $xref, $this->tree);
                 $this->gedrec = $tmp->privatizeGedcom(Auth::accessLevel($this->tree));
 
                 $repeat_parser = xml_parser_create();
@@ -2638,7 +2612,7 @@ class ReportParserGenerate extends ReportParserBase
      */
     private function addDescendancy(&$list, $pid, $parents = false, $generations = -1): void
     {
-        $person = Individual::getInstance($pid, $this->tree);
+        $person = Registry::individualFactory()->make($pid, $this->tree);
         if ($person === null) {
             return;
         }
@@ -2694,10 +2668,10 @@ class ReportParserGenerate extends ReportParserBase
     /**
      * Create a list of all ancestors.
      *
-     * @param stdClass[] $list
-     * @param string     $pid
-     * @param bool       $children
-     * @param int        $generations
+     * @param array<stdClass> $list
+     * @param string          $pid
+     * @param bool            $children
+     * @param int             $generations
      *
      * @return void
      */
@@ -2707,10 +2681,10 @@ class ReportParserGenerate extends ReportParserBase
         $list[$pid]->generation = 1;
         while (count($genlist) > 0) {
             $id = array_shift($genlist);
-            if (strpos($id, 'empty') === 0) {
+            if (str_starts_with($id, 'empty')) {
                 continue; // id can be something like “empty7”
             }
-            $person = Individual::getInstance($id, $this->tree);
+            $person = Registry::individualFactory()->make($id, $this->tree);
             foreach ($person->childFamilies() as $family) {
                 $husband = $family->husband();
                 $wife    = $family->wife();
@@ -2799,7 +2773,7 @@ class ReportParserGenerate extends ReportParserBase
         if ($ct > 0) {
             $value = trim($match[1]);
             if ($t === 'NOTE' && preg_match('/^@(.+)@$/', $value, $match)) {
-                $note = Note::getInstance($match[1], $this->tree);
+                $note = Registry::noteFactory()->make($match[1], $this->tree);
                 if ($note instanceof Note) {
                     $value = $note->getNote();
                 } else {

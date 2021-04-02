@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -20,6 +20,7 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees\Http\RequestHandlers;
 
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Tree;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -45,16 +46,26 @@ class CreateSubmitterAction implements RequestHandlerInterface
         $params              = (array) $request->getParsedBody();
         $name                = $params['submitter_name'];
         $address             = $params['submitter_address'];
+        $email               = $params['submitter_email'];
+        $phone               = $params['submitter_phone'];
         $privacy_restriction = $params['privacy-restriction'];
         $edit_restriction    = $params['edit-restriction'];
 
-        // Fix whitespace
+        // Fix non-printing characters
         $name = trim(preg_replace('/\s+/', ' ', $name));
 
         $gedcom = "0 @@ SUBM\n1 NAME " . $name;
 
         if ($address !== '') {
             $gedcom .= "\n1 ADDR " . $address;
+        }
+
+        if ($email !== '') {
+            $gedcom .= "\n1 EMAIL " . $email;
+        }
+
+        if ($phone !== '') {
+            $gedcom .= "\n1 PHON " . $phone;
         }
 
         if (in_array($privacy_restriction, ['none', 'privacy', 'confidential'], true)) {
@@ -66,9 +77,12 @@ class CreateSubmitterAction implements RequestHandlerInterface
         }
 
         $record = $tree->createRecord($gedcom);
+        $record = Registry::submitterFactory()->new($record->xref(), $record->gedcom(), null, $tree);
 
+        // id and text are for select2 / autocomplete
+        // html is for interactive modals
         return response([
-            'id'   => $record->xref(),
+            'id'   => '@' . $record->xref() . '@',
             'text' => view('selects/submitter', [
                 'submitter' => $record,
             ]),

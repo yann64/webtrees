@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,13 +12,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 namespace Fisharebest\Webtrees;
 
+use Closure;
 use Collator;
 use Exception;
 use Fisharebest\Localization\Locale;
@@ -40,11 +41,11 @@ use function mb_strtoupper;
 use function mb_substr;
 use function ord;
 use function sprintf;
+use function str_contains;
 use function str_replace;
 use function strcmp;
 use function strip_tags;
 use function strlen;
-use function strpos;
 use function strtr;
 use function var_export;
 
@@ -435,7 +436,7 @@ class I18N
      *
      * @return string
      */
-    public static function reverseText($text): string
+    public static function reverseText(string $text): string
     {
         // Remove HTML markup - we can't display it and it is LTR.
         $text = strip_tags($text);
@@ -455,7 +456,7 @@ class I18N
         while ($text !== '') {
             $letter = mb_substr($text, 0, 1);
             $text   = mb_substr($text, 1);
-            if (strpos(self::DIGITS, $letter) !== false) {
+            if (str_contains(self::DIGITS, $letter)) {
                 $digits .= $letter;
             } else {
                 $reversed = $letter . $digits . $reversed;
@@ -475,7 +476,7 @@ class I18N
      *
      * @return string
      */
-    public static function scriptDirection($script): string
+    public static function scriptDirection(string $script): string
     {
         switch ($script) {
             case 'Arab':
@@ -495,14 +496,14 @@ class I18N
      *
      * @return string
      */
-    public static function textScript($string): string
+    public static function textScript(string $string): string
     {
         $string = strip_tags($string); // otherwise HTML tags show up as latin
         $string = html_entity_decode($string, ENT_QUOTES, 'UTF-8'); // otherwise HTML entities show up as latin
         $string = str_replace([
-            '@N.N.',
-            '@P.N.',
-        ], '', $string); // otherwise unknown names show up as latin
+            Individual::NOMEN_NESCIO,
+            Individual::PRAENOMEN_NESCIO,
+        ], '', $string);
         $pos    = 0;
         $strlen = strlen($string);
         while ($pos < $strlen) {
@@ -541,21 +542,24 @@ class I18N
     }
 
     /**
-     * Perform a case-insensitive comparison of two strings.
+     * A closure which will compare strings using local collation rules.
      *
-     * @param string $string1
-     * @param string $string2
-     *
-     * @return int
+     * @return Closure
      */
-    public static function strcasecmp($string1, $string2): int
+    public static function comparator(): Closure
     {
         if (self::$collator instanceof Collator) {
-            return self::$collator->compare($string1, $string2);
+            return static function (string $x, string $y): int {
+                return (int) self::$collator->compare($x, $y);
+            };
         }
 
-        return strcmp(self::strtolower($string1), self::strtolower($string2));
+        return static function (string $x, string $y): int {
+            return strcmp(self::strtolower($x), self::strtolower($y));
+        };
     }
+
+
 
     /**
      * Convert a string to lower case.
@@ -564,7 +568,7 @@ class I18N
      *
      * @return string
      */
-    public static function strtolower($string): string
+    public static function strtolower(string $string): string
     {
         if (in_array(self::$locale->language()->code(), self::DOTLESS_I_LOCALES, true)) {
             $string = strtr($string, self::DOTLESS_I_TOLOWER);
@@ -580,7 +584,7 @@ class I18N
      *
      * @return string
      */
-    public static function strtoupper($string): string
+    public static function strtoupper(string $string): string
     {
         if (in_array(self::$locale->language()->code(), self::DOTLESS_I_LOCALES, true)) {
             $string = strtr($string, self::DOTLESS_I_TOUPPER);

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,13 +12,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 namespace Fisharebest\Webtrees\Http\RequestHandlers;
 
+use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Http\ViewResponseTrait;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Services\SearchService;
@@ -30,14 +31,12 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-use function array_filter;
 use function assert;
-use function in_array;
-use function preg_match;
 use function preg_replace;
 use function redirect;
-use function str_replace;
 use function trim;
+
+use const PREG_SET_ORDER;
 
 /**
  * Search for genealogy data
@@ -86,29 +85,31 @@ class SearchGeneralPage implements RequestHandlerInterface
         $search_sources      = (bool) ($params['search_sources'] ?? false);
         $search_notes        = (bool) ($params['search_notes'] ?? false);
 
-        // Default to individuals only
+        // Default to families and individuals only
         if (!$search_individuals && !$search_families && !$search_repositories && !$search_sources && !$search_notes) {
+            $search_families    = true;
             $search_individuals = true;
         }
 
         // What to search for?
         $search_terms = $this->extractSearchTerms($query);
 
-        // What trees to seach?
+        // What trees to search?
         if (Site::getPreference('ALLOW_CHANGE_GEDCOM') === '1') {
-            $all_trees = $this->tree_service->all()->all();
+            $all_trees = $this->tree_service->all();
         } else {
-            $all_trees = [$tree];
+            $all_trees = new Collection([$tree]);
         }
 
-        $search_tree_names = $params['search_trees'] ?? [];
+        $search_tree_names = new Collection($params['search_trees'] ?? []);
 
-        $search_trees = array_filter($all_trees, static function (Tree $tree) use ($search_tree_names): bool {
-            return in_array($tree->name(), $search_tree_names, true);
-        });
+        $search_trees = $all_trees
+            ->filter(static function (Tree $tree) use ($search_tree_names): bool {
+                return $search_tree_names->containsStrict($tree->name());
+            });
 
-        if ($search_trees === []) {
-            $search_trees = [$tree];
+        if ($search_trees->isEmpty()) {
+            $search_trees->add($tree);
         }
 
         // Do the search
@@ -120,26 +121,28 @@ class SearchGeneralPage implements RequestHandlerInterface
 
         if ($search_terms !== []) {
             if ($search_individuals) {
-                $individuals = $this->search_service->searchIndividuals($search_trees, $search_terms);
+                $individuals = $this->search_service->searchIndividuals($search_trees->all(), $search_terms);
             }
 
             if ($search_families) {
-                $tmp1 = $this->search_service->searchFamilies($search_trees, $search_terms);
-                $tmp2 = $this->search_service->searchFamilyNames($search_trees, $search_terms);
+                $tmp1 = $this->search_service->searchFamilies($search_trees->all(), $search_terms);
+                $tmp2 = $this->search_service->searchFamilyNames($search_trees->all(), $search_terms);
 
-                $families = $tmp1->merge($tmp2)->unique();
+                $families = $tmp1->merge($tmp2)->unique(static function (Family $family): string {
+                    return $family->xref() . '@' . $family->tree()->id();
+                });
             }
 
             if ($search_repositories) {
-                $repositories = $this->search_service->searchRepositories($search_trees, $search_terms);
+                $repositories = $this->search_service->searchRepositories($search_trees->all(), $search_terms);
             }
 
             if ($search_sources) {
-                $sources = $this->search_service->searchSources($search_trees, $search_terms);
+                $sources = $this->search_service->searchSources($search_trees->all(), $search_terms);
             }
 
             if ($search_notes) {
-                $notes = $this->search_service->searchNotes($search_trees, $search_terms);
+                $notes = $this->search_service->searchNotes($search_trees->all(), $search_terms);
             }
         }
 
@@ -186,25 +189,27 @@ class SearchGeneralPage implements RequestHandlerInterface
      *
      * @param string $query
      *
-     * @return string[]
+     * @return array<string>
      */
     private function extractSearchTerms(string $query): array
     {
         $search_terms = [];
 
         // Words in double quotes stay together
-        while (preg_match('/"([^"]+)"/', $query, $match)) {
+        preg_match_all('/"([^"]+)"/', $query, $matches, PREG_SET_ORDER);
+        foreach ($matches as $match) {
             $search_terms[] = trim($match[1]);
-            $query          = str_replace($match[0], '', $query);
+            // Remove this string from the search query
+            $query = strtr($query, [$match[0] => '']);
         }
 
         // Treat CJK characters as separate words, not as characters.
         $query = preg_replace('/\p{Han}/u', '$0 ', $query);
 
         // Other words get treated separately
-        while (preg_match('/[\S]+/', $query, $match)) {
-            $search_terms[] = trim($match[0]);
-            $query          = str_replace($match[0], '', $query);
+        preg_match_all('/[\S]+/', $query, $matches, PREG_SET_ORDER);
+        foreach ($matches as $match) {
+            $search_terms[] = $match[0];
         }
 
         return $search_terms;

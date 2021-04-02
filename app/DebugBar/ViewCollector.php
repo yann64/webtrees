@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -34,8 +34,8 @@ class ViewCollector extends DataCollector implements Renderable
     /**
      * Add details about a view
      *
-     * @param string $view
-     * @param array  $data
+     * @param string              $view
+     * @param array<string,mixed> $data
      *
      * @return void
      */
@@ -50,7 +50,7 @@ class ViewCollector extends DataCollector implements Renderable
     /**
      * Called by the DebugBar when data needs to be collected
      *
-     * @return array Collected data
+     * @return array<string,mixed> Collected data
      */
     public function collect(): array
     {
@@ -76,7 +76,7 @@ class ViewCollector extends DataCollector implements Renderable
      * Returns a hash where keys are control names and their values
      * an array of options as defined in {@see \DebugBar\JavascriptRenderer::addControl()}
      *
-     * @return array
+     * @return array<string,mixed>
      */
     public function getWidgets(): array
     {

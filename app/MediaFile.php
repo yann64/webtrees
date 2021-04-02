@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,22 +12,30 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 namespace Fisharebest\Webtrees;
 
-use League\Flysystem\Adapter\Local;
-use League\Flysystem\FileNotFoundException;
-use League\Flysystem\Filesystem;
-use League\Flysystem\FilesystemInterface;
-use League\Glide\Signatures\SignatureFactory;
+use Fisharebest\Webtrees\Http\RequestHandlers\MediaFileDownload;
+use Fisharebest\Webtrees\Http\RequestHandlers\MediaFileThumbnail;
+use League\Flysystem\FilesystemException;
+use League\Flysystem\FilesystemOperator;
+use League\Flysystem\UnableToCheckFileExistence;
+use League\Flysystem\UnableToReadFile;
+use League\Flysystem\UnableToRetrieveMetadata;
 
-use function getimagesize;
+use function bin2hex;
+use function getimagesizefromstring;
+use function http_build_query;
 use function intdiv;
+use function ksort;
+use function md5;
 use function pathinfo;
+use function random_bytes;
+use function str_contains;
 use function strtolower;
 
 use const PATHINFO_EXTENSION;
@@ -39,38 +47,11 @@ use const PATHINFO_EXTENSION;
  */
 class MediaFile
 {
-    private const MIME_TYPES = [
-        'bmp'  => 'image/bmp',
-        'doc'  => 'application/msword',
-        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'ged'  => 'text/x-gedcom',
-        'gif'  => 'image/gif',
-        'html' => 'text/html',
-        'htm'  => 'text/html',
-        'jpe'  => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'jpg'  => 'image/jpeg',
-        'mov'  => 'video/quicktime',
-        'mp3'  => 'audio/mpeg',
-        'mp4'  => 'video/mp4',
-        'ogv'  => 'video/ogg',
-        'pdf'  => 'application/pdf',
-        'png'  => 'image/png',
-        'rar'  => 'application/x-rar-compressed',
-        'swf'  => 'application/x-shockwave-flash',
-        'svg'  => 'image/svg',
-        'tiff' => 'image/tiff',
-        'tif'  => 'image/tiff',
-        'xls'  => 'application/vnd-ms-excel',
-        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'wmv'  => 'video/x-ms-wmv',
-        'zip'  => 'application/zip',
-    ];
-
     private const SUPPORTED_IMAGE_MIME_TYPES = [
         'image/gif',
         'image/jpeg',
         'image/png',
+        'image/webp',
     ];
 
     /** @var string The filename */
@@ -98,7 +79,7 @@ class MediaFile
      * @param string $gedcom
      * @param Media  $media
      */
-    public function __construct($gedcom, Media $media)
+    public function __construct(string $gedcom, Media $media)
     {
         $this->media   = $media;
         $this->fact_id = md5($gedcom);
@@ -192,14 +173,14 @@ class MediaFile
     /**
      * Display an image-thumbnail or a media-icon, and add markup for image viewers such as colorbox.
      *
-     * @param int      $width            Pixels
-     * @param int      $height           Pixels
-     * @param string   $fit              "crop" or "contain"
-     * @param string[] $image_attributes Additional HTML attributes
+     * @param int                  $width            Pixels
+     * @param int                  $height           Pixels
+     * @param string               $fit              "crop" or "contain"
+     * @param array<string,string> $image_attributes Additional HTML attributes
      *
      * @return string
      */
-    public function displayImage($width, $height, $fit, $image_attributes = []): string
+    public function displayImage(int $width, int $height, string $fit, array $image_attributes = []): string
     {
         if ($this->isExternal()) {
             $src    = $this->multimedia_file_refn;
@@ -224,7 +205,7 @@ class MediaFile
             $link_attributes = Html::attributes([
                 'class'      => 'gallery',
                 'type'       => $this->mimeType(),
-                'href'       => $this->imageUrl(0, 0, 'contain'),
+                'href'       => $this->downloadUrl('inline'),
                 'data-title' => strip_tags($this->media->fullName()),
             ]);
         } else {
@@ -244,7 +225,7 @@ class MediaFile
      */
     public function isExternal(): bool
     {
-        return strpos($this->multimedia_file_refn, '://') !== false;
+        return str_contains($this->multimedia_file_refn, '://');
     }
 
     /**
@@ -256,21 +237,17 @@ class MediaFile
      *
      * @return string
      */
-    public function imageUrl($width, $height, $fit): string
+    public function imageUrl(int $width, int $height, string $fit): string
     {
         // Sign the URL, to protect against mass-resize attacks.
         $glide_key = Site::getPreference('glide-key');
+
         if ($glide_key === '') {
             $glide_key = bin2hex(random_bytes(128));
             Site::setPreference('glide-key', $glide_key);
         }
 
-        if (Auth::accessLevel($this->media->tree()) > $this->media->tree()->getPreference('SHOW_NO_WATERMARK')) {
-            $mark = 'watermark.png';
-        } else {
-            $mark = '';
-        }
-
+        // The "mark" parameter is ignored, but needed for cache-busting.
         $params = [
             'xref'      => $this->media->xref(),
             'tree'      => $this->media->tree()->name(),
@@ -278,18 +255,12 @@ class MediaFile
             'w'         => $width,
             'h'         => $height,
             'fit'       => $fit,
-            'mark'      => $mark,
-            'markh'     => '100h',
-            'markw'     => '100w',
-            'markalpha' => 25,
-            'or'        => 0,
+            'mark'      => Registry::imageFactory()->thumbnailNeedsWatermark($this, Auth::user())
         ];
 
-        $signature = SignatureFactory::create($glide_key)->generateSignature('', $params);
+        $params['s'] = $this->signature($params);
 
-        $params = ['route' => '/media-thumbnail', 's' => $signature] + $params;
-
-        return route('media-thumbnail', $params);
+        return route(MediaFileThumbnail::class, $params);
     }
 
     /**
@@ -310,11 +281,11 @@ class MediaFile
     {
         $extension = strtolower(pathinfo($this->multimedia_file_refn, PATHINFO_EXTENSION));
 
-        return self::MIME_TYPES[$extension] ?? 'application/octet-stream';
+        return Mime::TYPES[$extension] ?? Mime::DEFAULT_TYPE;
     }
 
     /**
-     * Generate a URL to download a non-image media file.
+     * Generate a URL to download a media file.
      *
      * @param string $disposition How should the image be returned - "attachment" or "inline"
      *
@@ -322,44 +293,43 @@ class MediaFile
      */
     public function downloadUrl(string $disposition): string
     {
-        return route('media-download', [
+        // The "mark" parameter is ignored, but needed for cache-busting.
+        return route(MediaFileDownload::class, [
             'xref'        => $this->media->xref(),
             'tree'        => $this->media->tree()->name(),
             'fact_id'     => $this->fact_id,
             'disposition' => $disposition,
+            'mark'        => Registry::imageFactory()->fileNeedsWatermark($this, Auth::user())
         ]);
     }
 
     /**
      * A list of image attributes
      *
-     * @param FilesystemInterface $data_filesystem
+     * @param FilesystemOperator $data_filesystem
      *
-     * @return string[]
+     * @return array<string,string>
      */
-    public function attributes(FilesystemInterface $data_filesystem): array
+    public function attributes(FilesystemOperator $data_filesystem): array
     {
         $attributes = [];
 
         if (!$this->isExternal() || $this->fileExists($data_filesystem)) {
             try {
-                $bytes                       = $this->media()->tree()->mediaFilesystem($data_filesystem)->getSize($this->filename());
+                $bytes                       = $this->media()->tree()->mediaFilesystem($data_filesystem)->fileSize($this->filename());
                 $kb                          = intdiv($bytes + 1023, 1024);
-                $attributes['__FILE_SIZE__'] = I18N::translate('%s KB', I18N::number($kb));
-            } catch (FileNotFoundException $ex) {
+                $attributes[I18N::translate('File size')] = I18N::translate('%s KB', I18N::number($kb));
+            } catch (FilesystemException | UnableToRetrieveMetadata $ex) {
                 // External/missing files have no size.
             }
 
-            // Note: getAdapter() is defined on Filesystem, but not on FilesystemInterface.
             $filesystem = $this->media()->tree()->mediaFilesystem($data_filesystem);
-            if ($filesystem instanceof Filesystem) {
-                $adapter = $filesystem->getAdapter();
-                // Only works for local filesystems.
-                if ($adapter instanceof Local) {
-                    $file = $adapter->applyPathPrefix($this->filename());
-                    [$width, $height] = getimagesize($file);
-                    $attributes['__IMAGE_SIZE__'] = I18N::translate('%1$s × %2$s pixels', I18N::number($width), I18N::number($height));
-                }
+            try {
+                $data                         = $filesystem->read($this->filename());
+                [$width, $height]             = getimagesizefromstring($data);
+                $attributes[I18N::translate('Image dimensions')] = I18N::translate('%1$s × %2$s pixels', I18N::number($width), I18N::number($height));
+            } catch (FilesystemException | UnableToReadFile $ex) {
+                // Cannot read the file.
             }
         }
 
@@ -369,25 +339,33 @@ class MediaFile
     /**
      * Read the contents of a media file.
      *
-     * @param FilesystemInterface $data_filesystem
+     * @param FilesystemOperator $data_filesystem
      *
      * @return string
      */
-    public function fileContents(FilesystemInterface $data_filesystem): string
+    public function fileContents(FilesystemOperator $data_filesystem): string
     {
-        return $this->media->tree()->mediaFilesystem($data_filesystem)->read($this->multimedia_file_refn);
+        try {
+            return $this->media->tree()->mediaFilesystem($data_filesystem)->read($this->multimedia_file_refn);
+        } catch (FilesystemException | UnableToReadFile $ex) {
+            return '';
+        }
     }
 
     /**
      * Check if the file exists on this server
      *
-     * @param FilesystemInterface $data_filesystem
+     * @param FilesystemOperator $data_filesystem
      *
      * @return bool
      */
-    public function fileExists(FilesystemInterface $data_filesystem): bool
+    public function fileExists(FilesystemOperator $data_filesystem): bool
     {
-        return $this->media->tree()->mediaFilesystem($data_filesystem)->has($this->multimedia_file_refn);
+        try {
+            return $this->media->tree()->mediaFilesystem($data_filesystem)->fileExists($this->multimedia_file_refn);
+        } catch (FilesystemException | UnableToCheckFileExistence $ex) {
+            return false;
+        }
     }
 
     /**
@@ -409,12 +387,27 @@ class MediaFile
     }
 
     /**
-     * What file extension is used by this file?
+     * Create a URL signature parameter, using the same algorithm as league/glide,
+     * for compatibility with URLs generated by older versions of webtrees.
+     *
+     * @param array<mixed> $params
      *
      * @return string
      */
-    public function extension(): string
+    public function signature(array $params): string
     {
-        return pathinfo($this->multimedia_file_refn, PATHINFO_EXTENSION);
+        unset($params['s']);
+
+        ksort($params);
+
+        // Sign the URL, to protect against mass-resize attacks.
+        $glide_key = Site::getPreference('glide-key');
+
+        if ($glide_key === '') {
+            $glide_key = bin2hex(random_bytes(128));
+            Site::setPreference('glide-key', $glide_key);
+        }
+
+        return md5($glide_key . ':?' . http_build_query($params));
     }
 }

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -21,23 +21,21 @@ namespace Fisharebest\Webtrees\Http\RequestHandlers;
 
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Date;
-use Fisharebest\Webtrees\Http\Controllers\AbstractBaseController;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Services\LocalizationService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 use function array_keys;
-use function array_merge;
-use function preg_replace;
 use function response;
-use function str_replace;
 use function strip_tags;
 use function view;
 
 /**
  * Show help text.
  */
-class HelpText extends AbstractBaseController
+class HelpText implements RequestHandlerInterface
 {
     private const FRENCH_DATES = [
         '@#DFRENCH R@ 12',
@@ -166,6 +164,19 @@ class HelpText extends AbstractBaseController
         ],
     ];
 
+    /** @var LocalizationService */
+    private $localisation_service;
+
+    /**
+     * HelpText constructor.
+     *
+     * @param LocalizationService $localization_service
+     */
+    public function __construct(LocalizationService $localization_service)
+    {
+        $this->localisation_service = $localization_service;
+    }
+
     /**
      * @param ServerRequestInterface $request
      *
@@ -175,18 +186,20 @@ class HelpText extends AbstractBaseController
     {
         $topic = $request->getAttribute('topic');
 
+        $dmy = $this->localisation_service->dateFormatToOrder(I18N::dateFormat());
+
         switch ($topic) {
             case 'DATE':
-                switch ($this->dmyOrder()) {
+                switch ($dmy) {
                     case 'YMD':
-                        $date_shortcuts = array_merge(self::DATE_SHORTCUTS, self::YMD_SHORTCUTS);
+                        $date_shortcuts = self::DATE_SHORTCUTS + self::YMD_SHORTCUTS;
                         break;
                     case 'MDY':
-                        $date_shortcuts = array_merge(self::DATE_SHORTCUTS, self::MDY_SHORTCUTS);
+                        $date_shortcuts = self::DATE_SHORTCUTS + self::MDY_SHORTCUTS;
                         break;
                     case 'DMY':
                     default:
-                        $date_shortcuts = array_merge(self::DATE_SHORTCUTS, self::DMY_SHORTCUTS);
+                        $date_shortcuts = self::DATE_SHORTCUTS + self::DMY_SHORTCUTS;
                         break;
                 }
 
@@ -240,6 +253,11 @@ class HelpText extends AbstractBaseController
                 $text  = view('help/hebrew');
                 break;
 
+            case 'data-fixes':
+                $title = I18N::translate('Data fixes');
+                $text  = view('help/data-fixes');
+                break;
+
             case 'edit_SOUR_EVEN':
                 $title = I18N::translate('Associate events with this source');
                 $text  = view('help/source-events');
@@ -286,7 +304,7 @@ class HelpText extends AbstractBaseController
      *
      * @param string[]|int[] $gedcom_dates
      *
-     * @return string[]
+     * @return array<string>
      */
     private function formatDates(array $gedcom_dates): array
     {
@@ -301,15 +319,5 @@ class HelpText extends AbstractBaseController
         }
 
         return $dates;
-    }
-
-    /**
-     * Does the current language use DMY, MDY or YMD for numeric date.
-     *
-     * @return string
-     */
-    private function dmyOrder(): string
-    {
-        return preg_replace('/[^DMY]/', '', str_replace(['J', 'F',], ['D', 'M',], I18N::dateFormat()));
     }
 }

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -58,7 +58,7 @@ class ChartNoChildrenFamilies
      * @param int $year1
      * @param int $year2
      *
-     * @return stdClass[]
+     * @return array<stdClass>
      */
     private function queryRecords(int $year1, int $year2): array
     {
@@ -107,18 +107,18 @@ class ChartNoChildrenFamilies
         $total = 0;
 
         foreach ($this->queryRecords($year1, $year2) as $record) {
-            $total += $record->total;
+            $total += (int) $record->total;
 
             $data[] = [
                 $this->century_service->centuryName((int) $record->century),
-                $record->total
+                (int) $record->total
             ];
         }
 
         if ($total) {
             $data[] = [
                 I18N::translateContext('unknown century', 'Unknown'),
-                $no_child_fam - $total
+                $no_child_fam - $total,
             ];
         }
 

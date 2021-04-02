@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,18 +12,18 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 use Aura\Router\RouterContainer;
 use Fig\Http\Message\StatusCodeInterface;
-use Fisharebest\Webtrees\Application;
 use Fisharebest\Webtrees\Html;
 use Fisharebest\Webtrees\Session as WebtreesSession;
 use Fisharebest\Webtrees\View as WebtreesView;
 use Fisharebest\Webtrees\Webtrees;
+use Illuminate\Container\Container;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -39,10 +39,10 @@ use Psr\Http\Message\StreamFactoryInterface;
 function app(string $abstract = null)
 {
     if ($abstract === null) {
-        return Application::getInstance();
+        return Container::getInstance();
     }
 
-    return Application::getInstance()->make($abstract);
+    return Container::getInstance()->make($abstract);
 }
 
 /**
@@ -73,7 +73,7 @@ function asset(string $path): string
  *
  * @return string
  */
-function csrf_field()
+function csrf_field(): string
 {
     return '<input type="hidden" name="_csrf" value="' . e(WebtreesSession::getCsrfToken()) . '">';
 }
@@ -83,7 +83,7 @@ function csrf_field()
  *
  * @return string
  */
-function csrf_token()
+function csrf_token(): string
 {
     return WebtreesSession::getCsrfToken();
 }
@@ -122,14 +122,14 @@ function response($content = '', $code = StatusCodeInterface::STATUS_OK, $header
     if ($headers === []) {
         if (is_string($content)) {
             $headers = [
-                'Content-Type'   => 'text/html; charset=utf-8',
-                'Content-Length' => strlen($content),
+                'Content-Type'   => 'text/html; charset=UTF-8',
+                'Content-Length' => (string) strlen($content),
             ];
         } else {
-            $content = json_encode($content, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+            $content = json_encode($content, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
             $headers = [
                 'Content-Type'   => 'application/json',
-                'Content-Length' => strlen($content),
+                'Content-Length' => (string) strlen($content),
             ];
         }
     }
@@ -173,7 +173,7 @@ function route(string $route_name, array $parameters = []): string
 
     // Aura ignores parameters that are not tokens.  We need to add them as query parameters.
     $parameters = array_filter($parameters, static function (string $key) use ($route): bool {
-        return strpos($route->path, '{' . $key . '}') === false && strpos($route->path, '{/' . $key . '}') === false;
+        return !str_contains($route->path, '{' . $key . '}') && !str_contains($route->path, '{/' . $key . '}');
     }, ARRAY_FILTER_USE_KEY);
 
     if ($request->getAttribute('rewrite_urls') === '1') {
@@ -198,7 +198,7 @@ function route(string $route_name, array $parameters = []): string
  *
  * @return string
  */
-function view(string $name, array $data = [])
+function view(string $name, array $data = []): string
 {
     return WebtreesView::make($name, $data);
 }

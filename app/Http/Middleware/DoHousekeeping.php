@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -20,14 +20,13 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees\Http\Middleware;
 
 use Fig\Http\Message\RequestMethodInterface;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\HousekeepingService;
-use League\Flysystem\FilesystemInterface;
+use League\Flysystem\FilesystemOperator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-
-use function assert;
 
 /**
  * Run the housekeeping service at irregular intervals.
@@ -72,17 +71,11 @@ class DoHousekeeping implements MiddlewareInterface
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $data_filesystem = $request->getAttribute('filesystem.data');
-        assert($data_filesystem instanceof FilesystemInterface);
-
-        $root_filesystem = $request->getAttribute('filesystem.root');
-        assert($root_filesystem instanceof FilesystemInterface);
-
         $response = $handler->handle($request);
 
         // Run the cleanup after random page requests.
         if ($request->getMethod() === RequestMethodInterface::METHOD_GET && random_int(1, self::PROBABILITY) === 1) {
-            $this->runHousekeeping($data_filesystem, $root_filesystem);
+            $this->runHousekeeping(Registry::filesystem()->data(), Registry::filesystem()->root());
         }
 
         return $response;
@@ -91,12 +84,12 @@ class DoHousekeeping implements MiddlewareInterface
     /**
      * Run the various housekeeping services.
      *
-     * @param FilesystemInterface $data_filesystem
-     * @param FilesystemInterface $root_filesystem
+     * @param FilesystemOperator $data_filesystem
+     * @param FilesystemOperator $root_filesystem
      *
      * @return void
      */
-    private function runHousekeeping(FilesystemInterface $data_filesystem, FilesystemInterface $root_filesystem): void
+    private function runHousekeeping(FilesystemOperator $data_filesystem, FilesystemOperator $root_filesystem): void
     {
         // Clear old thumbnails
         $this->housekeeping_service->deleteOldFiles($data_filesystem, self::THUMBNAIL_DIR, self::MAX_THUMBNAIL_AGE);

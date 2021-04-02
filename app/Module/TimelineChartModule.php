@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -24,6 +24,7 @@ use Fig\Http\Message\RequestMethodInterface;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Date\GregorianDate;
 use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\GedcomRecord;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
@@ -45,8 +46,7 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
 {
     use ModuleChartTrait;
 
-    private const ROUTE_NAME = 'timeline-chart';
-    private const ROUTE_URL  = '/tree/{tree}/timeline-{scale}';
+    protected const ROUTE_URL  = '/tree/{tree}/timeline-{scale}';
 
     // Defaults
     protected const DEFAULT_SCALE      = 10;
@@ -60,16 +60,17 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
 
     // GEDCOM events that may have DATE data, but should not be displayed
     protected const NON_FACTS = [
-        'BAPL',
-        'ENDL',
-        'SLGC',
-        'SLGS',
-        '_TODO',
-        'CHAN',
+        'FAM:CHAN',
+        'INDI:BAPL',
+        'INDI:CHAN',
+        'INDI:ENDL',
+        'INDI:SLGC',
+        'INDI:SLGS',
+        'INDI:_TODO',
     ];
-    protected const BHEIGHT   = 30;
 
     // Box height
+    protected const BHEIGHT = 30;
 
     /**
      * Initialization.
@@ -82,7 +83,7 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
         assert($router_container instanceof RouterContainer);
 
         $router_container->getMap()
-            ->get(self::ROUTE_NAME, self::ROUTE_URL, $this)
+            ->get(static::class, static::ROUTE_URL, $this)
             ->allows(RequestMethodInterface::METHOD_POST);
     }
 
@@ -128,7 +129,7 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
      */
     public function chartUrl(Individual $individual, array $parameters = []): string
     {
-        return route(self::ROUTE_NAME, [
+        return route(static::class, [
                 'tree'  => $individual->tree()->name(),
                 'xrefs' => [$individual->xref()],
             ] + $parameters + self::DEFAULT_PARAMETERS);
@@ -154,7 +155,7 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
 
         $add  = $params['add'] ?? '';
 
-        Auth::checkComponentAccess($this, 'chart', $tree, $user);
+        Auth::checkComponentAccess($this, ModuleChartInterface::class, $tree, $user);
 
         $scale = min($scale, self::MAXIMUM_SCALE);
         $scale = max($scale, self::MINIMUM_SCALE);
@@ -164,7 +165,7 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
 
         // Convert POST requests into GET requests for pretty URLs.
         if ($request->getMethod() === RequestMethodInterface::METHOD_POST) {
-            return redirect(route(self::ROUTE_NAME, [
+            return redirect(route(static::class, [
                 'scale' => $scale,
                 'tree'  => $tree->name(),
                 'xrefs' => $xrefs,
@@ -173,9 +174,9 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
 
         // Find the requested individuals.
         $individuals = (new Collection($xrefs))
-            ->unique()
+            ->uniqueStrict()
             ->map(static function (string $xref) use ($tree): ?Individual {
-                return Individual::getInstance($xref, $tree);
+                return Registry::individualFactory()->make($xref, $tree);
             })
             ->filter()
             ->filter(GedcomRecord::accessFilter());
@@ -192,7 +193,7 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
                     return $individual->xref();
                 });
 
-            $remove_urls[$exclude->xref()] = route(self::ROUTE_NAME, [
+            $remove_urls[$exclude->xref()] = route(static::class, [
                 'tree'  => $tree->name(),
                 'scale' => $scale,
                 'xrefs' => $xrefs_1->all(),
@@ -200,14 +201,14 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
         }
 
         $individuals = array_map(static function (string $xref) use ($tree): ?Individual {
-            return Individual::getInstance($xref, $tree);
+            return Registry::individualFactory()->make($xref, $tree);
         }, $xrefs);
 
         $individuals = array_filter($individuals, static function (?Individual $individual): bool {
             return $individual instanceof Individual && $individual->canShow();
         });
 
-        Auth::checkComponentAccess($this, 'chart', $tree, $user);
+        Auth::checkComponentAccess($this, ModuleChartInterface::class, $tree, $user);
 
         if ($ajax === '1') {
             $this->layout = 'layouts/ajax';
@@ -215,24 +216,24 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
             return $this->chart($tree, $xrefs, $scale);
         }
 
-        $reset_url = route(self::ROUTE_NAME, [
+        $reset_url = route(static::class, [
             'scale' => self::DEFAULT_SCALE,
             'tree'  => $tree->name(),
         ]);
 
-        $zoom_in_url = route(self::ROUTE_NAME, [
+        $zoom_in_url = route(static::class, [
             'scale' => min(self::MAXIMUM_SCALE, $scale + (int) ($scale * 0.2 + 1)),
             'tree'  => $tree->name(),
             'xrefs' => $xrefs,
         ]);
 
-        $zoom_out_url = route(self::ROUTE_NAME, [
+        $zoom_out_url = route(static::class, [
             'scale' => max(self::MINIMUM_SCALE, $scale - (int) ($scale * 0.2 + 1)),
             'tree'  => $tree->name(),
             'xrefs' => $xrefs,
         ]);
 
-        $ajax_url = route(self::ROUTE_NAME, [
+        $ajax_url = route(static::class, [
             'ajax'  => true,
             'scale' => $scale,
             'tree'  => $tree->name(),
@@ -264,7 +265,7 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
     {
         /** @var Individual[] $individuals */
         $individuals = array_map(static function (string $xref) use ($tree): ?Individual {
-            return Individual::getInstance($xref, $tree);
+            return Registry::individualFactory()->make($xref, $tree);
         }, $xrefs);
 
         $individuals = array_filter($individuals, static function (?Individual $individual): bool {
@@ -294,10 +295,9 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
                     $facts->push($fact);
                 }
             }
+
             foreach ($facts as $event) {
-                // get the fact type
-                $fact = $event->getTag();
-                if (!in_array($fact, self::NON_FACTS, true)) {
+                if (!in_array($event->tag(), self::NON_FACTS, true)) {
                     // check for a date
                     $date = $event->date();
                     if ($date->isOK()) {
@@ -316,7 +316,9 @@ class TimelineChartModule extends AbstractModule implements ModuleChartInterface
         }
 
         // do not add the same fact twice (prevents marriages from being added multiple times)
-        $indifacts = $indifacts->unique();
+        $indifacts = $indifacts->uniqueStrict(static function (Fact $fact): string {
+            return $fact->id();
+        });
 
         if ($scale === 0) {
             $scale = (int) (($topyear - $baseyear) / 20 * $indifacts->count() / 4);

@@ -4,19 +4,22 @@ use Fisharebest\Webtrees\I18N;
 use Illuminate\Support\Collection;
 
 /**
- * @var Collection $yahrzeits
+ * @var int                  $limit_high
+ * @var int                  $limit_low
+ * @var Collection<stdClass> $yahrzeits
  */
 
 ?>
 
 <div class="table-responsive">
     <table
-    class="table table-sm datatable wt-table-yahrzeits"
-    data-info="false"
-    data-paging="false"
-    data-searching="false"
-    data-sorting="<?= e('[[3, "asc" ]]') ?>"
+        class="table table-sm datatable wt-table-yahrzeits"
         <?= view('lists/datatables-attributes') ?>
+        data-paging="<?= $yahrzeits->count() >= $limit_high ? 'true' : 'false' ?>"
+        data-filter="false"
+        data-info="false"
+        data-length-change="false"
+        data-page-length="<?= e($limit_low) ?>"
     >
         <thead>
             <tr>
@@ -44,7 +47,7 @@ use Illuminate\Support\Collection;
                             <?php endif ?>
                         </a>
                     </td>
-                    <td data-sort="<?= e($yahrzeit->fact_date->julianDay()) ?>">
+                    <td data-sort="<?= e($yahrzeit->yahrzeit_date->julianDay()) ?>">
                         <?= $yahrzeit->fact_date->display(true, null, false) ?>
                     </td>
                     <td data-sort="<?= e($yahrzeit->fact->anniv) ?>">

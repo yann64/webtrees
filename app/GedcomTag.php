@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,443 +12,29 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 namespace Fisharebest\Webtrees;
 
-use Ramsey\Uuid\Uuid;
+use function str_contains;
 
 /**
  * Static GEDCOM data for tags
  */
 class GedcomTag
 {
-    /** All tags that webtrees knows how to translate - including special/internal tags */
-    private const ALL_TAGS = [
-        'ABBR',
-        'ADDR',
-        'ADR1',
-        'ADR2',
-        'ADOP',
-        'ADOP:DATE',
-        'ADOP:PLAC',
-        'AFN',
-        'AGE',
-        'AGNC',
-        'ALIA',
-        'ANCE',
-        'ANCI',
-        'ANUL',
-        'ASSO',
-        'AUTH',
-        'BAPL',
-        'BAPL:DATE',
-        'BAPL:PLAC',
-        'BAPM',
-        'BAPM:DATE',
-        'BAPM:PLAC',
-        'BARM',
-        'BARM:DATE',
-        'BARM:PLAC',
-        'BASM',
-        'BASM:DATE',
-        'BASM:PLAC',
-        'BIRT',
-        'BIRT:DATE',
-        'BIRT:PLAC',
-        'BLES',
-        'BLES:DATE',
-        'BLES:PLAC',
-        'BLOB',
-        'BURI',
-        'BURI:DATE',
-        'BURI:PLAC',
-        'CALN',
-        'CAST',
-        'CAUS',
-        'CEME',
-        'CENS',
-        'CENS:DATE',
-        'CENS:PLAC',
-        'CHAN',
-        'CHAN:DATE',
-        'CHAN:_WT_USER',
-        'CHAR',
-        'CHIL',
-        'CHR',
-        'CHR:DATE',
-        'CHR:PLAC',
-        'CHRA',
-        'CITN',
-        'CITY',
-        'COMM',
-        'CONC',
-        'CONT',
-        'CONF',
-        'CONF:DATE',
-        'CONF:PLAC',
-        'CONL',
-        'COPR',
-        'CORP',
-        'CREM',
-        'CREM:DATE',
-        'CREM:PLAC',
-        'CTRY',
-        'DATA',
-        'DATA:DATE',
-        'DATE',
-        'DEAT',
-        'DEAT:CAUS',
-        'DEAT:DATE',
-        'DEAT:PLAC',
-        'DESC',
-        'DESI',
-        'DEST',
-        'DIV',
-        'DIVF',
-        'DSCR',
-        'EDUC',
-        'EDUC:AGNC',
-        'EMAI',
-        'EMAIL',
-        'EMAL',
-        'EMIG',
-        'EMIG:DATE',
-        'EMIG:PLAC',
-        'ENDL',
-        'ENDL:DATE',
-        'ENDL:PLAC',
-        'ENGA',
-        'ENGA:DATE',
-        'ENGA:PLAC',
-        'EVEN',
-        'EVEN:DATE',
-        'EVEN:PLAC',
-        'EVEN:TYPE',
-        'FACT',
-        'FACT:TYPE',
-        'FAM',
-        'FAMC',
-        'FAMF',
-        'FAMS',
-        'FAMS:CENS:DATE',
-        'FAMS:CENS:PLAC',
-        'FAMS:DIV:DATE',
-        'FAMS:MARR:DATE',
-        'FAMS:MARR:PLAC',
-        'FAMS:NOTE',
-        'FAX',
-        'FCOM',
-        'FCOM:DATE',
-        'FCOM:PLAC',
-        'FILE',
-        'FONE',
-        'FORM',
-        'GEDC',
-        'GIVN',
-        'GRAD',
-        'HEAD',
-        'HUSB',
-        'IDNO',
-        'IMMI',
-        'IMMI:DATE',
-        'IMMI:PLAC',
-        'INDI',
-        'INFL',
-        'LANG',
-        'LATI',
-        'LEGA',
-        'LONG',
-        'MAP',
-        'MARB',
-        'MARB:DATE',
-        'MARB:PLAC',
-        'MARC',
-        'MARL',
-        'MARR',
-        'MARR:DATE',
-        'MARR:PLAC',
-        'MARR_CIVIL',
-        'MARR_PARTNERS',
-        'MARR_RELIGIOUS',
-        'MARR_UNKNOWN',
-        'MARS',
-        'MEDI',
-        'NAME',
-        'NAME:FONE',
-        'NAME:_HEB',
-        'NATI',
-        'NATU',
-        'NATU:DATE',
-        'NATU:PLAC',
-        'NCHI',
-        'NICK',
-        'NMR',
-        'NOTE',
-        'NPFX',
-        'NSFX',
-        'OBJE',
-        'OCCU',
-        'OCCU:AGNC',
-        'ORDI',
-        'ORDN',
-        'ORDN:AGNC',
-        'ORDN:DATE',
-        'ORDN:PLAC',
-        'PAGE',
-        'PEDI',
-        'PHON',
-        'PLAC',
-        'PLAC:FONE',
-        'PLAC:ROMN',
-        'PLAC:_HEB',
-        'POST',
-        'PROB',
-        'PROP',
-        'PUBL',
-        'QUAY',
-        'REFN',
-        'RELA',
-        'RELI',
-        'REPO',
-        'RESI',
-        'RESI:DATE',
-        'RESI:PLAC',
-        'RESN',
-        'RETI',
-        'RETI:AGNC',
-        'RFN',
-        'RIN',
-        'ROLE',
-        'ROMN',
-        'SERV',
-        'SEX',
-        'SHARED_NOTE',
-        'SLGC',
-        'SLGC:DATE',
-        'SLGC:PLAC',
-        'SLGS',
-        'SLGS:DATE',
-        'SLGS:PLAC',
-        'SOUR',
-        'SPFX',
-        'SSN',
-        'STAE',
-        'STAT',
-        'STAT:DATE',
-        'SUBM',
-        'SUBN',
-        'SURN',
-        'TEMP',
-        'TEXT',
-        'TIME',
-        'TITL',
-        'TITL:FONE',
-        'TITL:ROMN',
-        'TITL:_HEB',
-        'TRLR',
-        'TYPE',
-        'URL',
-        'VERS',
-        'WIFE',
-        'WILL',
-        'WWW',
-        '_ADOP_CHIL',
-        '_ADOP_GCHI',
-        '_ADOP_GCH1',
-        '_ADOP_GCH2',
-        '_ADOP_HSIB',
-        '_ADOP_SIBL',
-        '_ADPF',
-        '_ADPM',
-        '_AKA',
-        '_AKAN',
-        '_ASSO',
-        '_BAPM_CHIL',
-        '_BAPM_GCHI',
-        '_BAPM_GCH1',
-        '_BAPM_GCH2',
-        '_BAPM_HSIB',
-        '_BAPM_SIBL',
-        '_BIBL',
-        '_BIRT_CHIL',
-        '_BIRT_GCHI',
-        '_BIRT_GCH1',
-        '_BIRT_GCH2',
-        '_BIRT_HSIB',
-        '_BIRT_SIBL',
-        '_BRTM',
-        '_BRTM:DATE',
-        '_BRTM:PLAC',
-        '_BURI_CHIL',
-        '_BURI_GCHI',
-        '_BURI_GCH1',
-        '_BURI_GCH2',
-        '_BURI_GPAR',
-        '_BURI_HSIB',
-        '_BURI_SIBL',
-        '_BURI_SPOU',
-        '_CHR_CHIL',
-        '_CHR_GCHI',
-        '_CHR_GCH1',
-        '_CHR_GCH2',
-        '_CHR_HSIB',
-        '_CHR_SIBL',
-        '_COML',
-        '_CREM_CHIL',
-        '_CREM_GCHI',
-        '_CREM_GCH1',
-        '_CREM_GCH2',
-        '_CREM_GPAR',
-        '_CREM_HSIB',
-        '_CREM_SIBL',
-        '_CREM_SPOU',
-        '_DATE',
-        '_DBID',
-        '_DEAT_CHIL',
-        '_DEAT_GCHI',
-        '_DEAT_GCH1',
-        '_DEAT_GCH2',
-        '_DEAT_GPAR',
-        '_DEAT_GPA1',
-        '_DEAT_GPA2',
-        '_DEAT_HSIB',
-        '_DEAT_PARE',
-        '_DEAT_SIBL',
-        '_DEAT_SPOU',
-        '_DEG',
-        '_DETS',
-        '_DNA',
-        '_EMAIL',
-        '_EYEC',
-        '_FA1',
-        '_FA2',
-        '_FA3',
-        '_FA4',
-        '_FA5',
-        '_FA6',
-        '_FA7',
-        '_FA8',
-        '_FA9',
-        '_FA10',
-        '_FA11',
-        '_FA12',
-        '_FA13',
-        '_FNRL',
-        '_FREL',
-        '_GEDF',
-        '_GODP',
-        '_HAIR',
-        '_HEB',
-        '_HEIG',
-        '_HNM',
-        '_HOL',
-        '_INTE',
-        '_LOC',
-        '_MARI',
-        '_MARNM',
-        '_PRIM',
-        '_MARNM_SURN',
-        '_MARR_CHIL',
-        '_MARR_FAMC',
-        '_MARR_GCHI',
-        '_MARR_GCH1',
-        '_MARR_GCH2',
-        '_MARR_HSIB',
-        '_MARR_PARE',
-        '_MARR_SIBL',
-        '_MBON',
-        '_MDCL',
-        '_MEDC',
-        '_MEND',
-        '_MILI',
-        '_MILT',
-        '_MREL',
-        '_MSTAT',
-        '_NAME',
-        '_NAMS',
-        '_NLIV',
-        '_NMAR',
-        '_NMR',
-        '_PLACE',
-        '_WT_USER',
-        '_PRMN',
-        '_SCBK',
-        '_SEPR',
-        '_SSHOW',
-        '_STAT',
-        '_SUBQ',
-        '_TODO',
-        '_TYPE',
-        '_UID',
-        '_URL',
-        '_WEIG',
-        '_WITN',
-        '_YART',
-        '__BRTM_CHIL',
-        '__BRTM_GCHI',
-        '__BRTM_GCH1',
-        '__BRTM_GCH2',
-        '__BRTM_HSIB',
-        '__BRTM_SIBL',
-        // These pseudo-tags are generated dynamically to display media object attributes
-        '__FILE_SIZE__',
-        '__IMAGE_SIZE__',
-    ];
-
-    /** @var string[] Possible values for the Object-File-Format types */
-    private const OBJE_FILE_FORM_TYPE = [
-        'audio',
-        'book',
-        'card',
-        'certificate',
-        'coat',
-        'document',
-        'electronic',
-        'fiche',
-        'film',
-        'magazine',
-        'manuscript',
-        'map',
-        'newspaper',
-        'photo',
-        'tombstone',
-        'video',
-        'painting',
-        'other',
-    ];
-
-    /**
-     * Is $tag one of our known tags?
-     *
-     * @param string $tag
-     *
-     * @return bool
-     */
-    public static function isTag($tag): bool
-    {
-        return in_array($tag, self::ALL_TAGS, true);
-    }
-
     /**
      * Translate a tag, for an (optional) record
      *
-     * @param string            $tag
-     * @param GedcomRecord|null $record
+     * @param string $tag
      *
      * @return string
      */
-    public static function getLabel($tag, GedcomRecord $record = null): string
+    public static function getLabel(string $tag): string
     {
-        if ($record instanceof Individual) {
-            $sex = $record->sex();
-        } else {
-            $sex = 'U';
-        }
-
         switch ($tag) {
             case 'ABBR':
                 /* I18N: gedcom tag ABBR */
@@ -457,11 +43,14 @@ class GedcomTag
                 /* I18N: gedcom tag ADDR */
                 return I18N::translate('Address');
             case 'ADR1':
-                /* I18N: gedcom tag ADD1 */
+                /* I18N: gedcom tag ADR1 */
                 return I18N::translate('Address line 1');
             case 'ADR2':
-                /* I18N: gedcom tag ADD2 */
+                /* I18N: gedcom tag ADR2 */
                 return I18N::translate('Address line 2');
+            case 'ADR3':
+                /* I18N: gedcom tag ADR3 */
+                return I18N::translate('Address line 3');
             case 'ADOP':
                 /* I18N: gedcom tag ADOP */
                 return I18N::translate('Adoption');
@@ -569,9 +158,7 @@ class GedcomTag
                 return I18N::translate('Census date');
             case 'CENS:PLAC':
                 return I18N::translate('Census place');
-            case '_UPD':
-                // Family Tree Builder uses "1 _UPD 14 APR 2012 00:14:10 GMT-5" instead of 1 CHAN/2 DATE/3 TIME
-                // no break
+            case '_UPD': // Family Tree Builder uses "1 _UPD 14 APR 2012 00:14:10 GMT-5" instead of 1 CHAN/2 DATE/3 TIME
             case 'CHAN':
             /* I18N: gedcom tag CHAN */
                 return I18N::translate('Last change');
@@ -643,9 +230,7 @@ class GedcomTag
                 return I18N::translate('Data');
             case 'DATA:DATE':
                 return I18N::translate('Date of entry in original source');
-            case '_DATE':
-                // Family Tree Builder uses OBJE:_DATE
-                // no break
+            case '_DATE': // Family Tree Builder uses OBJE:_DATE
             case 'DATE':
                 /* I18N: gedcom tag DATE */
                 return I18N::translate('Date');
@@ -682,9 +267,7 @@ class GedcomTag
             case 'EDUC:AGNC':
                 return I18N::translate('School or college');
             case 'EMAI':
-                // no break
             case 'EMAL':
-                // no break
             case 'EMAIL':
                 /* I18N: gedcom tag EMAIL */
                 return I18N::translate('Email address');
@@ -737,24 +320,6 @@ class GedcomTag
             case 'FAMS':
                 /* I18N: gedcom tag FAMS */
                 return I18N::translate('Family as a spouse');
-            case 'FAMS:CENS:DATE':
-                return I18N::translate('Spouse census date');
-            case 'FAMS:CENS:PLAC':
-                return I18N::translate('Spouse census place');
-            case 'FAMS:DIV:DATE':
-                return I18N::translate('Date of divorce');
-            case 'FAMS:MARR:DATE':
-                return I18N::translate('Date of marriage');
-            case 'FAMS:MARR:PLAC':
-                return I18N::translate('Place of marriage');
-            case 'FAMS:NOTE':
-                return I18N::translate('Spouse note');
-            case 'FAMS:SLGS:DATE':
-                /* I18N: LDS = Church of Latter Day Saints. */
-                return I18N::translate('Date of LDS spouse sealing');
-            case 'FAMS:SLGS:PLAC':
-                /* I18N: LDS = Church of Latter Day Saints. */
-                return I18N::translate('Place of LDS spouse sealing');
             case 'FAX':
                 /* I18N: gedcom tag FAX */
                 return I18N::translate('Fax');
@@ -819,7 +384,7 @@ class GedcomTag
                 return I18N::translate('Longitude');
             case 'MAP':
                 /* I18N: gedcom tag MAP */
-                return I18N::translate('Location');
+                return I18N::translate('Coordinates');
             case 'MARB':
                 /* I18N: gedcom tag MARB */
                 return I18N::translate('Marriage banns');
@@ -855,11 +420,6 @@ class GedcomTag
                 /* I18N: gedcom tag MEDI */
                 return I18N::translate('Media type');
             case 'NAME':
-                if ($record instanceof Repository) {
-                    /* I18N: gedcom tag REPO:NAME */
-                    return I18N::translateContext('Repository', 'Name');
-                }
-
                 /* I18N: gedcom tag NAME */
                 return I18N::translate('Name');
             case 'NAME:FONE':
@@ -923,9 +483,7 @@ class GedcomTag
             case 'PHON':
                 /* I18N: gedcom tag PHON */
                 return I18N::translate('Phone');
-            case '_PLACE':
-                // Family Tree Builder uses OBJE:_PLACE
-                // no break
+            case '_PLACE': // Family Tree Builder uses OBJE:_PLACE
             case 'PLAC':
             /* I18N: gedcom tag PLAC */
                 return I18N::translate('Place');
@@ -962,6 +520,8 @@ class GedcomTag
             case 'REPO':
                 /* I18N: gedcom tag REPO */
                 return I18N::translate('Repository');
+            case 'REPO:NAME':
+                return I18N::translateContext('Repository', 'Name');
             case 'RESI':
                 /* I18N: gedcom tag RESI */
                 return I18N::translate('Residence');
@@ -983,9 +543,7 @@ class GedcomTag
             case '_PHOTO_RIN':
                 // Family Tree Builder uses "0 OBJE/1 _PHOTO_RIN"
                 // no  break
-            case '_PRIN':
-                // Family Tree Builder uses "0 _ALBUM/1 _PHOTO/2 _PRIN"
-                // no break
+            case '_PRIN':// Family Tree Builder uses "0 _ALBUM/1 _PHOTO/2 _PRIN"
             case 'RIN':
                 /* I18N: gedcom tag RIN */
                 return I18N::translate('Record ID number');
@@ -1080,112 +638,17 @@ class GedcomTag
             case 'WWW':
                 /* I18N: gedcom tag WWW (A web address / URL) */
                 return I18N::translate('URL');
-            case '_ADOP_CHIL':
-                if ($sex === 'M') {
-                    return I18N::translate('Adoption of a son');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Adoption of a daughter');
-                }
-
-                return I18N::translate('Adoption of a child');
-
-            case '_ADOP_GCHI':
-                if ($sex === 'M') {
-                    return I18N::translate('Adoption of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Adoption of a granddaughter');
-                }
-
-                return I18N::translate('Adoption of a grandchild');
-
-            case '_ADOP_GCH1':
-                if ($sex === 'M') {
-                    return I18N::translateContext('daughter’s son', 'Adoption of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('daughter’s daughter', 'Adoption of a granddaughter');
-                }
-
-                return I18N::translate('Adoption of a grandchild');
-
-            case '_ADOP_GCH2':
-                if ($sex === 'M') {
-                    return I18N::translateContext('son’s son', 'Adoption of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('son’s daughter', 'Adoption of a granddaughter');
-                }
-
-                return I18N::translate('Adoption of a grandchild');
-
-            case '_ADOP_HSIB':
-                if ($sex === 'M') {
-                    return I18N::translate('Adoption of a half-brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Adoption of a half-sister');
-                }
-
-                return I18N::translate('Adoption of a half-sibling');
-
-            case '_ADOP_SIBL':
-                if ($sex === 'M') {
-                    return I18N::translate('Adoption of a brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Adoption of a sister');
-                }
-
-                return I18N::translate('Adoption of a sibling');
 
             case '_ADPF':
-                if ($sex === 'M') {
-                    /* I18N: gedcom tag _ADPF */
-                    return I18N::translateContext('MALE', 'Adopted by father');
-                }
-
-                if ($sex === 'F') {
-                    /* I18N: gedcom tag _ADPF */
-                    return I18N::translateContext('FEMALE', 'Adopted by father');
-                }
-
                 /* I18N: gedcom tag _ADPF */
                 return I18N::translate('Adopted by father');
 
             case '_ADPM':
-                if ($sex === 'M') {
-                    /* I18N: gedcom tag _ADPM */
-                    return I18N::translateContext('MALE', 'Adopted by mother');
-                }
-
-                if ($sex === 'F') {
-                    /* I18N: gedcom tag _ADPM */
-                    return I18N::translateContext('FEMALE', 'Adopted by mother');
-                }
-
                 /* I18N: gedcom tag _ADPM */
                 return I18N::translate('Adopted by mother');
 
             case '_AKA':
             case '_AKAN':
-                if ($sex === 'M') {
-                    /* I18N: gedcom tag _AKA */
-                    return I18N::translateContext('MALE', 'Also known as');
-                }
-
-                if ($sex === 'F') {
-                    /* I18N: gedcom tag _AKA */
-                    return I18N::translateContext('FEMALE', 'Also known as');
-                }
-
                 /* I18N: gedcom tag _AKA */
                 return I18N::translate('Also known as');
 
@@ -1196,141 +659,10 @@ class GedcomTag
             case '_ASSO':
                 /* I18N: gedcom tag _ASSO */
                 return I18N::translate('Associate');
-            case '_BAPM_CHIL':
-                if ($sex === 'M') {
-                    return I18N::translate('Baptism of a son');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Baptism of a daughter');
-                }
-
-                return I18N::translate('Baptism of a child');
-
-            case '_BAPM_GCHI':
-                if ($sex === 'M') {
-                    return I18N::translate('Baptism of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Baptism of a granddaughter');
-                }
-
-                return I18N::translate('Baptism of a grandchild');
-
-            case '_BAPM_GCH1':
-                if ($sex === 'M') {
-                    return I18N::translateContext('daughter’s son', 'Baptism of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('daughter’s daughter', 'Baptism of a granddaughter');
-                }
-
-                return I18N::translate('Baptism of a grandchild');
-
-            case '_BAPM_GCH2':
-                if ($sex === 'M') {
-                    return I18N::translateContext('son’s son', 'Baptism of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('son’s daughter', 'Baptism of a granddaughter');
-                }
-
-                return I18N::translate('Baptism of a grandchild');
-
-            case '_BAPM_HSIB':
-                if ($sex === 'M') {
-                    return I18N::translate('Baptism of a half-brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Baptism of a half-sister');
-                }
-
-                return I18N::translate('Baptism of a half-sibling');
-
-            case '_BAPM_SIBL':
-                if ($sex === 'M') {
-                    return I18N::translate('Baptism of a brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Baptism of a sister');
-                }
-
-                return I18N::translate('Baptism of a sibling');
 
             case '_BIBL':
                 /* I18N: gedcom tag _BIBL */
                 return I18N::translate('Bibliography');
-
-            case '_BIRT_CHIL':
-                if ($sex === 'M') {
-                    return I18N::translate('Birth of a son');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Birth of a daughter');
-                }
-
-                return I18N::translate('Birth of a child');
-
-            case '_BIRT_GCHI':
-                if ($sex === 'M') {
-                    return I18N::translate('Birth of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Birth of a granddaughter');
-                }
-
-                return I18N::translate('Birth of a grandchild');
-
-            case '_BIRT_GCH1':
-                if ($sex === 'M') {
-                    return I18N::translateContext('daughter’s son', 'Birth of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('daughter’s daughter', 'Birth of a granddaughter');
-                }
-
-                return I18N::translate('Birth of a grandchild');
-
-            case '_BIRT_GCH2':
-                if ($sex === 'M') {
-                    return I18N::translateContext('son’s son', 'Birth of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('son’s daughter', 'Birth of a granddaughter');
-                }
-
-                return I18N::translate('Birth of a grandchild');
-
-            case '_BIRT_HSIB':
-                if ($sex === 'M') {
-                    return I18N::translate('Birth of a half-brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Birth of a half-sister');
-                }
-
-                return I18N::translate('Birth of a half-sibling');
-
-            case '_BIRT_SIBL':
-                if ($sex === 'M') {
-                    return I18N::translate('Birth of a brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Birth of a sister');
-                }
-
-                return I18N::translate('Birth of a sibling');
 
             case '_BRTM':
                 /* I18N: gedcom tag _BRTM */
@@ -1339,442 +671,14 @@ class GedcomTag
                 return I18N::translate('Date of brit milah');
             case '_BRTM:PLAC':
                 return I18N::translate('Place of brit milah');
-            case '_BURI_CHIL':
-                if ($sex === 'M') {
-                    return I18N::translate('Burial of a son');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Burial of a daughter');
-                }
-
-                return I18N::translate('Burial of a child');
-
-            case '_BURI_GCHI':
-                if ($sex === 'M') {
-                    return I18N::translate('Burial of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Burial of a granddaughter');
-                }
-
-                return I18N::translate('Burial of a grandchild');
-
-            case '_BURI_GCH1':
-                if ($sex === 'M') {
-                    return I18N::translateContext('daughter’s son', 'Burial of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('daughter’s daughter', 'Burial of a granddaughter');
-                }
-
-                return I18N::translate('Burial of a grandchild');
-
-            case '_BURI_GCH2':
-                if ($sex === 'M') {
-                    return I18N::translateContext('son’s son', 'Burial of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('son’s daughter', 'Burial of a granddaughter');
-                }
-
-                return I18N::translate('Burial of a grandchild');
-
-            case '_BURI_GPAR':
-                if ($sex === 'M') {
-                    return I18N::translate('Burial of a grandfather');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Burial of a grandmother');
-                }
-
-                return I18N::translate('Burial of a grandparent');
-
-            case '_BURI_GPA1':
-                if ($sex === 'M') {
-                    return I18N::translate('Burial of a paternal grandfather');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Burial of a paternal grandmother');
-                }
-
-                return I18N::translate('Burial of a paternal grandparent');
-
-            case '_BURI_GPA2':
-                if ($sex === 'M') {
-                    return I18N::translate('Burial of a maternal grandfather');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Burial of a maternal grandmother');
-                }
-
-                return I18N::translate('Burial of a maternal grandparent');
-
-            case '_BURI_HSIB':
-                if ($sex === 'M') {
-                    return I18N::translate('Burial of a half-brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Burial of a half-sister');
-                }
-
-                return I18N::translate('Burial of a half-sibling');
-
-            case '_BURI_PARE':
-                if ($sex === 'M') {
-                    return I18N::translate('Burial of a father');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Burial of a mother');
-                }
-
-                return I18N::translate('Burial of a parent');
-
-            case '_BURI_SIBL':
-                if ($sex === 'M') {
-                    return I18N::translate('Burial of a brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Burial of a sister');
-                }
-
-                return I18N::translate('Burial of a sibling');
-
-            case '_BURI_SPOU':
-                if ($sex === 'M') {
-                    return I18N::translate('Burial of a husband');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Burial of a wife');
-                }
-
-                return I18N::translate('Burial of a spouse');
-
-            case '_CHR_CHIL':
-                if ($sex === 'M') {
-                    return I18N::translate('Christening of a son');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Christening of a daughter');
-                }
-
-                return I18N::translate('Christening of a child');
-
-            case '_CHR_GCHI':
-                if ($sex === 'M') {
-                    return I18N::translate('Christening of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Christening of a granddaughter');
-                }
-
-                return I18N::translate('Christening of a grandchild');
-
-            case '_CHR_GCH1':
-                if ($sex === 'M') {
-                    return I18N::translateContext('daughter’s son', 'Christening of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('daughter’s daughter', 'Christening of a granddaughter');
-                }
-
-                return I18N::translate('Christening of a grandchild');
-
-            case '_CHR_GCH2':
-                if ($sex === 'M') {
-                    return I18N::translateContext('son’s son', 'Christening of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('son’s daughter', 'Christening of a granddaughter');
-                }
-
-                return I18N::translate('Christening of a grandchild');
-
-            case '_CHR_HSIB':
-                if ($sex === 'M') {
-                    return I18N::translate('Christening of a half-brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Christening of a half-sister');
-                }
-
-                return I18N::translate('Christening of a half-sibling');
-
-            case '_CHR_SIBL':
-                if ($sex === 'M') {
-                    return I18N::translate('Christening of a brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Christening of a sister');
-                }
-
-                return I18N::translate('Christening of a sibling');
 
             case '_COML':
                 /* I18N: gedcom tag _COML */
                 return I18N::translate('Common law marriage');
 
-            case '_CREM_CHIL':
-                if ($sex === 'M') {
-                    return I18N::translate('Cremation of a son');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Cremation of a daughter');
-                }
-
-                return I18N::translate('Cremation of a child');
-
-            case '_CREM_GCHI':
-                if ($sex === 'M') {
-                    return I18N::translate('Cremation of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Cremation of a granddaughter');
-                }
-
-                return I18N::translate('Cremation of a grandchild');
-
-            case '_CREM_GCH1':
-                if ($sex === 'M') {
-                    return I18N::translateContext('daughter’s son', 'Cremation of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('daughter’s daughter', 'Cremation of a granddaughter');
-                }
-
-                return I18N::translate('Cremation of a grandchild');
-
-            case '_CREM_GCH2':
-                if ($sex === 'M') {
-                    return I18N::translateContext('son’s son', 'Cremation of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('son’s daughter', 'Cremation of a granddaughter');
-                }
-
-                return I18N::translate('Cremation of a grandchild');
-
-            case '_CREM_GPAR':
-                if ($sex === 'M') {
-                    return I18N::translate('Cremation of a grandfather');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Cremation of a grandmother');
-                }
-
-                return I18N::translate('Cremation of a grand-parent');
-
-            case '_CREM_GPA1':
-                if ($sex === 'M') {
-                    return I18N::translate('Cremation of a paternal grandfather');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Cremation of a paternal grandmother');
-                }
-
-                return I18N::translate('Cremation of a grand-parent');
-
-            case '_CREM_GPA2':
-                if ($sex === 'M') {
-                    return I18N::translate('Cremation of a maternal grandfather');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Cremation of a maternal grandmother');
-                }
-
-                return I18N::translate('Cremation of a grand-parent');
-
-            case '_CREM_HSIB':
-                if ($sex === 'M') {
-                    return I18N::translate('Cremation of a half-brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Cremation of a half-sister');
-                }
-
-                return I18N::translate('Cremation of a half-sibling');
-
-            case '_CREM_PARE':
-                if ($sex === 'M') {
-                    return I18N::translate('Cremation of a father');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Cremation of a mother');
-                }
-
-                return I18N::translate('Cremation of a parent');
-
-            case '_CREM_SIBL':
-                if ($sex === 'M') {
-                    return I18N::translate('Cremation of a brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Cremation of a sister');
-                }
-
-                return I18N::translate('Cremation of a sibling');
-
-            case '_CREM_SPOU':
-                if ($sex === 'M') {
-                    return I18N::translate('Cremation of a husband');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Cremation of a wife');
-                }
-
-                return I18N::translate('Cremation of a spouse');
-
             case '_DBID':
                 /* I18N: gedcom tag _DBID */
                 return I18N::translate('Linked database ID');
-
-            case '_DEAT_CHIL':
-                if ($sex === 'M') {
-                    return I18N::translate('Death of a son');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Death of a daughter');
-                }
-
-                return I18N::translate('Death of a child');
-
-            case '_DEAT_GCHI':
-                if ($sex === 'M') {
-                    return I18N::translate('Death of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Death of a granddaughter');
-                }
-
-                return I18N::translate('Death of a grandchild');
-
-            case '_DEAT_GCH1':
-                if ($sex === 'M') {
-                    return I18N::translateContext('daughter’s son', 'Death of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('daughter’s daughter', 'Death of a granddaughter');
-                }
-
-                return I18N::translate('Death of a grandchild');
-
-            case '_DEAT_GCH2':
-                if ($sex === 'M') {
-                    return I18N::translateContext('son’s son', 'Death of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('son’s daughter', 'Death of a granddaughter');
-                }
-
-                return I18N::translate('Death of a grandchild');
-
-            case '_DEAT_GPAR':
-                if ($sex === 'M') {
-                    return I18N::translate('Death of a grandfather');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Death of a grandmother');
-                }
-
-                return I18N::translate('Death of a grand-parent');
-
-            case '_DEAT_GPA1':
-                if ($sex === 'M') {
-                    return I18N::translate('Death of a paternal grandfather');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Death of a paternal grandmother');
-                }
-
-                return I18N::translate('Death of a grand-parent');
-
-            case '_DEAT_GPA2':
-                if ($sex === 'M') {
-                    return I18N::translate('Death of a maternal grandfather');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Death of a maternal grandmother');
-                }
-
-                return I18N::translate('Death of a grand-parent');
-
-            case '_DEAT_HSIB':
-                if ($sex === 'M') {
-                    return I18N::translate('Death of a half-brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Death of a half-sister');
-                }
-
-                return I18N::translate('Death of a half-sibling');
-
-            case '_DEAT_PARE':
-                if ($sex === 'M') {
-                    return I18N::translate('Death of a father');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Death of a mother');
-                }
-
-                return I18N::translate('Death of a parent');
-
-            case '_DEAT_SIBL':
-                if ($sex === 'M') {
-                    return I18N::translate('Death of a brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Death of a sister');
-                }
-
-                return I18N::translate('Death of a sibling');
-
-            case '_DEAT_SPOU':
-                if ($sex === 'M') {
-                    return I18N::translate('Death of a husband');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Death of a wife');
-                }
-
-                return I18N::translate('Death of a spouse');
 
             case '_DEG':
                 /* I18N: gedcom tag _DEG */
@@ -1829,6 +733,9 @@ class GedcomTag
             case '_GODP':
                 /* I18N: gedcom tag _GODP */
                 return I18N::translate('Godparent');
+            case '_GOV':
+                /* I18N: gedcom tag _GOV - see https://gov.genealogy.net */
+                return I18N::translate('GOV identifier');
             case '_HAIR':
                 /* I18N: gedcom tag _HAIR */
                 return I18N::translate('Hair color');
@@ -1846,18 +753,8 @@ class GedcomTag
                 return I18N::translate('Holocaust');
 
             case '_INTE':
-                if ($sex === 'M') {
-                    /* I18N: gedcom tag _INTE */
-                    return I18N::translateContext('MALE', 'Interred');
-                }
-
-                if ($sex === 'F') {
-                    /* I18N: gedcom tag _INTE */
-                    return I18N::translateContext('FEMALE', 'Interred');
-                }
-
                 /* I18N: gedcom tag _INTE */
-                return I18N::translate('Interred');
+                return I18N::translate('Interment');
 
             case '_LOC':
                 /* I18N: gedcom tag _LOC */
@@ -1873,90 +770,6 @@ class GedcomTag
                 return I18N::translate('Highlighted image');
             case '_MARNM_SURN':
                 return I18N::translate('Married surname');
-
-            case '_MARR_CHIL':
-                if ($sex === 'M') {
-                    return I18N::translate('Marriage of a son');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Marriage of a daughter');
-                }
-
-                return I18N::translate('Marriage of a child');
-
-            case '_MARR_FAMC':
-                /* I18N: ...to each other */
-                return I18N::translate('Marriage of parents');
-
-            case '_MARR_GCHI':
-                if ($sex === 'M') {
-                    return I18N::translate('Marriage of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Marriage of a granddaughter');
-                }
-
-                return I18N::translate('Marriage of a grandchild');
-
-            case '_MARR_GCH1':
-                if ($sex === 'M') {
-                    return I18N::translateContext('daughter’s son', 'Marriage of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('daughter’s daughter', 'Marriage of a granddaughter');
-                }
-
-                return I18N::translate('Marriage of a grandchild');
-
-            case '_MARR_GCH2':
-                if ($sex === 'M') {
-                    return I18N::translateContext('son’s son', 'Marriage of a grandson');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('son’s daughter', 'Marriage of a granddaughter');
-                }
-
-                return I18N::translate('Marriage of a grandchild');
-
-            case '_MARR_HSIB':
-                if ($sex === 'M') {
-                    return I18N::translate('Marriage of a half-brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Marriage of a half-sister');
-                }
-
-                return I18N::translate('Marriage of a half-sibling');
-
-            case '_MARR_PARE':
-                if ($sex === 'M') {
-                    /* I18N: ...to another spouse */
-                    return I18N::translate('Marriage of a father');
-                }
-
-                if ($sex === 'F') {
-                    /* I18N: ...to another spouse */
-                    return I18N::translate('Marriage of a mother');
-                }
-
-                /* I18N: ...to another spouse */
-                return I18N::translate('Marriage of a parent');
-
-            case '_MARR_SIBL':
-                if ($sex === 'M') {
-                    return I18N::translate('Marriage of a brother');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translate('Marriage of a sister');
-                }
-
-                return I18N::translate('Marriage of a sibling');
 
             case '_MBON':
                 /* I18N: gedcom tag _MBON */
@@ -1992,30 +805,10 @@ class GedcomTag
                 /* I18N: gedcom tag _NLIV */
                 return I18N::translate('Not living');
             case '_NMAR':
-                if ($sex === 'M') {
-                    /* I18N: gedcom tag _NMAR */
-                    return I18N::translateContext('MALE', 'Never married');
-                }
-
-                if ($sex === 'F') {
-                    /* I18N: gedcom tag _NMAR */
-                    return I18N::translateContext('FEMALE', 'Never married');
-                }
-
                 /* I18N: gedcom tag _NMAR */
                 return I18N::translate('Never married');
 
             case '_NMR':
-                if ($sex === 'M') {
-                    /* I18N: gedcom tag _NMR */
-                    return I18N::translateContext('MALE', 'Not married');
-                }
-
-                if ($sex === 'F') {
-                    /* I18N: gedcom tag _NMR */
-                    return I18N::translateContext('FEMALE', 'Not married');
-                }
-
                 /* I18N: gedcom tag _NMR */
                 return I18N::translate('Not married');
 
@@ -2028,15 +821,6 @@ class GedcomTag
                 /* I18N: gedcom tag _PRMN */
                 return I18N::translate('Permanent number');
             case '_RNAME':
-                // Family Tree Builder user "1 NAME / 2 _RNAME"
-                if ($sex === 'M') {
-                    return I18N::translateContext('MALE', 'Religious name');
-                }
-
-                if ($sex === 'F') {
-                    return I18N::translateContext('FEMALE', 'Religious name');
-                }
-
                 return I18N::translate('Religious name');
 
             case '_SCBK':
@@ -2044,7 +828,7 @@ class GedcomTag
                 return I18N::translate('Scrapbook');
             case '_SEPR':
                 /* I18N: gedcom tag _SEPR */
-                return I18N::translate('Separated');
+                return I18N::translate('Separation');
             case '_SSHOW':
                 /* I18N: gedcom tag _SSHOW */
                 return I18N::translate('Slide show');
@@ -2078,23 +862,7 @@ class GedcomTag
             case '_YART':
                 /* I18N: gedcom tag _YART - A yahrzeit is a special anniversary of death in the Hebrew faith/calendar. */
                 return I18N::translate('Yahrzeit');
-            case '__BRTM_CHIL':
-                // Brit milah applies only to males, no need for male/female translations
-                return I18N::translate('Brit milah of a son');
-            case '__BRTM_GCHI':
-                // Brit milah applies only to males, no need for male/female translations
-                return I18N::translate('Brit milah of a grandson');
-            case '__BRTM_GCH1':
-                return I18N::translateContext('daughter’s son', 'Brit milah of a grandson');
-            case '__BRTM_GCH2':
-                return I18N::translateContext('son’s son', 'Brit milah of a grandson');
-            case '__BRTM_HSIB':
-                return I18N::translate('Brit milah of a half-brother');
-            case '__BRTM_SIBL':
-                return I18N::translate('Brit milah of a brother');
-            case '_FILESIZE':
-                // Family Tree Builder uses OBJE:_FILESIZE
-                // no break
+            case '_FILESIZE': // Family Tree Builder uses OBJE:_FILESIZE
             case '__FILE_SIZE__':
                 // This pseudo-tag is generated internally to present information about a media object
                 return I18N::translate('File size');
@@ -2103,10 +871,10 @@ class GedcomTag
                 return I18N::translate('Image dimensions');
             default:
                 // If no specialisation exists (e.g. DEAT:CAUS), then look for the general (CAUS)
-                if (strpos($tag, ':') !== false) {
+                if (str_contains($tag, ':')) {
                     [, $tag] = explode(':', $tag, 2);
 
-                    return self::getLabel($tag, $record);
+                    return self::getLabel($tag);
                 }
 
                 // Still no translation? Highlight this as an error
@@ -2124,326 +892,12 @@ class GedcomTag
      *
      * @return string
      */
-    public static function getLabelValue($tag, $value, GedcomRecord $record = null, $element = 'div'): string
+    public static function getLabelValue(string $tag, string $value, GedcomRecord $record = null, $element = 'div'): string
     {
         return
             '<' . $element . ' class="fact_' . $tag . '">' .
             /* I18N: a label/value pair, such as “Occupation: Farmer”. Some languages may need to change the punctuation. */
-            I18N::translate('<span class="label">%1$s:</span> <span class="field" dir="auto">%2$s</span>', self::getLabel($tag, $record), $value) .
+            I18N::translate('<span class="label">%1$s:</span> <span class="field" dir="auto">%2$s</span>', self::getLabel($tag), $value) .
             '</' . $element . '>';
-    }
-
-    /**
-     * Get a list of facts, for use in the "fact picker" edit control
-     *
-     * @param string $fact_type
-     *
-     * @return string[]
-     */
-    public static function getPicklistFacts($fact_type): array
-    {
-        switch ($fact_type) {
-            case 'INDI':
-                $tags = [
-                    // Facts, attributes for individuals (no links to FAMs)
-                    'RESN',
-                    'NAME',
-                    'SEX',
-                    'BIRT',
-                    'CHR',
-                    'DEAT',
-                    'BURI',
-                    'CREM',
-                    'ADOP',
-                    'BAPM',
-                    'BARM',
-                    'BASM',
-                    'BLES',
-                    'CHRA',
-                    'CONF',
-                    'FCOM',
-                    'ORDN',
-                    'NATU',
-                    'EMIG',
-                    'IMMI',
-                    'CENS',
-                    'PROB',
-                    'WILL',
-                    'GRAD',
-                    'RETI',
-                    'EVEN',
-                    'CAST',
-                    'DSCR',
-                    'EDUC',
-                    'IDNO',
-                    'NATI',
-                    'NCHI',
-                    'NMR',
-                    'OCCU',
-                    'PROP',
-                    'RELI',
-                    'RESI',
-                    'SSN',
-                    'TITL',
-                    'FACT',
-                    'BAPL',
-                    'CONL',
-                    'ENDL',
-                    'SLGC',
-                    'SUBM',
-                    'ASSO',
-                    'ALIA',
-                    'ANCI',
-                    'DESI',
-                    'RFN',
-                    'AFN',
-                    'REFN',
-                    'RIN',
-                    'CHAN',
-                    'NOTE',
-                    'SHARED_NOTE',
-                    'SOUR',
-                    'OBJE',
-                    // non standard tags
-                    '_BRTM',
-                    '_DEG',
-                    '_DNA',
-                    '_EYEC',
-                    '_FNRL',
-                    '_HAIR',
-                    '_HEIG',
-                    '_HNM',
-                    '_HOL',
-                    '_INTE',
-                    '_MDCL',
-                    '_MEDC',
-                    '_MILI',
-                    '_MILT',
-                    '_NAME',
-                    '_NAMS',
-                    '_NLIV',
-                    '_NMAR',
-                    '_PRMN',
-                    '_TODO',
-                    '_UID',
-                    '_WEIG',
-                    '_YART',
-                ];
-                break;
-            case 'FAM':
-                $tags = [
-                    // Facts for families, left out HUSB, WIFE & CHIL links
-                    'RESN',
-                    'ANUL',
-                    'CENS',
-                    'DIV',
-                    'DIVF',
-                    'ENGA',
-                    'MARB',
-                    'MARC',
-                    'MARR',
-                    'MARL',
-                    'MARS',
-                    'RESI',
-                    'EVEN',
-                    'NCHI',
-                    'SUBM',
-                    'SLGS',
-                    'REFN',
-                    'RIN',
-                    'CHAN',
-                    'NOTE',
-                    'SHARED_NOTE',
-                    'SOUR',
-                    'OBJE',
-                    // non standard tags
-                    '_NMR',
-                    'MARR_CIVIL',
-                    'MARR_RELIGIOUS',
-                    'MARR_PARTNERS',
-                    'MARR_UNKNOWN',
-                    '_COML',
-                    '_MBON',
-                    '_MARI',
-                    '_SEPR',
-                    '_TODO',
-                ];
-                break;
-            case 'SOUR':
-                $tags = [
-                    // Facts for sources
-                    'DATA',
-                    'AUTH',
-                    'TITL',
-                    'ABBR',
-                    'PUBL',
-                    'TEXT',
-                    'REPO',
-                    'REFN',
-                    'RIN',
-                    'CHAN',
-                    'NOTE',
-                    'SHARED_NOTE',
-                    'OBJE',
-                    'RESN',
-                ];
-                break;
-            case 'REPO':
-                $tags = [
-                    // Facts for repositories
-                    'NAME',
-                    'ADDR',
-                    'PHON',
-                    'EMAIL',
-                    'FAX',
-                    'WWW',
-                    'NOTE',
-                    'SHARED_NOTE',
-                    'REFN',
-                    'RIN',
-                    'CHAN',
-                    'RESN',
-                ];
-                break;
-            case 'PLAC':
-                $tags = [
-                    // Facts for places
-                    'FONE',
-                    'ROMN',
-                    // non standard tags
-                    '_HEB',
-                ];
-                break;
-            case 'NAME':
-                $tags = [
-                    // Facts subordinate to NAME
-                    'FONE',
-                    'ROMN',
-                    // non standard tags
-                    '_HEB',
-                    '_AKA',
-                    '_MARNM',
-                ];
-                break;
-            default:
-                $tags = [];
-                break;
-        }
-
-        $facts = [];
-        foreach ($tags as $tag) {
-            $facts[$tag] = self::getLabel($tag, null);
-        }
-        uasort($facts, '\Fisharebest\Webtrees\I18N::strcasecmp');
-
-        return $facts;
-    }
-
-    /**
-     * Translate the value for 1 FILE/2 FORM/3 TYPE
-     *
-     * @param string $type
-     *
-     * @return string
-     */
-    public static function getFileFormTypeValue(string $type): string
-    {
-        switch (strtolower($type)) {
-            case 'audio':
-                /* I18N: Type of media object */
-                return I18N::translate('Audio');
-            case 'book':
-                /* I18N: Type of media object */
-                return I18N::translate('Book');
-            case 'card':
-                /* I18N: Type of media object */
-                return I18N::translate('Card');
-            case 'certificate':
-                /* I18N: Type of media object */
-                return I18N::translate('Certificate');
-            case 'coat':
-                /* I18N: Type of media object */
-                return I18N::translate('Coat of arms');
-            case 'document':
-                /* I18N: Type of media object */
-                return I18N::translate('Document');
-            case 'electronic':
-                /* I18N: Type of media object */
-                return I18N::translate('Electronic');
-            case 'fiche':
-                /* I18N: Type of media object */
-                return I18N::translate('Microfiche');
-            case 'film':
-                /* I18N: Type of media object */
-                return I18N::translate('Microfilm');
-            case 'magazine':
-                /* I18N: Type of media object */
-                return I18N::translate('Magazine');
-            case 'manuscript':
-                /* I18N: Type of media object */
-                return I18N::translate('Manuscript');
-            case 'map':
-                /* I18N: Type of media object */
-                return I18N::translate('Map');
-            case 'newspaper':
-                /* I18N: Type of media object */
-                return I18N::translate('Newspaper');
-            case 'photo':
-                /* I18N: Type of media object */
-                return I18N::translate('Photo');
-            case 'tombstone':
-                /* I18N: Type of media object */
-                return I18N::translate('Tombstone');
-            case 'video':
-                /* I18N: Type of media object */
-                return I18N::translate('Video');
-            case 'painting':
-                /* I18N: Type of media object */
-                return I18N::translate('Painting');
-            default:
-                /* I18N: Type of media object */
-                return I18N::translate('Other');
-        }
-    }
-
-    /**
-     * A list of all possible values for 1 FILE/2 FORM/3 TYPE
-     *
-     * @return string[]
-     */
-    public static function getFileFormTypes(): array
-    {
-        $values = array_map(static function (string $keyword): string {
-            return self::getFileFormTypeValue($keyword);
-        }, array_combine(self::OBJE_FILE_FORM_TYPE, self::OBJE_FILE_FORM_TYPE));
-
-        uasort($values, '\Fisharebest\Webtrees\I18N::strcasecmp');
-
-        return $values;
-    }
-
-    /**
-     * Generate a value for a new _UID field.
-     * Instead of RFC4122-compatible UUIDs, generate ones that
-     * are compatible with PAF, Legacy, RootsMagic, etc.
-     * In these, the string is upper-cased, dashes are removed,
-     * and a two-byte checksum is added.
-     *
-     * @return string
-     */
-    public static function createUid(): string
-    {
-        $uid = str_replace('-', '', Uuid::uuid4()->toString());
-
-        $checksum_a = 0; // a sum of the bytes
-        $checksum_b = 0; // a sum of the incremental values of $checksum_a
-
-        // Compute checksums
-        for ($i = 0; $i < 32; $i += 2) {
-            $checksum_a += hexdec(substr($uid, $i, 2));
-            $checksum_b += $checksum_a & 0xff;
-        }
-
-        return strtoupper($uid . substr(dechex($checksum_a), -2) . substr(dechex($checksum_b), -2));
     }
 }

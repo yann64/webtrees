@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -23,13 +23,13 @@ use League\CommonMark\Block\Element\Paragraph;
 use League\CommonMark\Block\Parser\BlockParserInterface;
 use League\CommonMark\ContextInterface;
 use League\CommonMark\Cursor;
-use League\CommonMark\Ext\Table\Table;
-use League\CommonMark\Ext\Table\TableCell;
-use League\CommonMark\Ext\Table\TableRow;
+use League\CommonMark\Extension\Table\Table;
+use League\CommonMark\Extension\Table\TableCell;
+use League\CommonMark\Extension\Table\TableRow;
 
 use function array_shift;
 use function explode;
-use function strpos;
+use function str_starts_with;
 use function substr;
 
 /**
@@ -91,8 +91,8 @@ class CensusTableParser implements BlockParserInterface
         // Subsequent lines are the table body.
         while ($lines !== []) {
             $line = array_shift($lines);
-            $row = $this->parseRow($line, TableCell::TYPE_BODY);
-            $table->getHead()->appendChild($row);
+            $row  = $this->parseRow($line, TableCell::TYPE_BODY);
+            $table->getBody()->appendChild($row);
         }
 
         $context->replaceContainerBlock($table);
@@ -112,7 +112,7 @@ class CensusTableParser implements BlockParserInterface
         $row   = new TableRow();
 
         foreach ($cells as $cell) {
-            if (strpos($cell, self::TH_PREFIX) === 0) {
+            if (str_starts_with($cell, self::TH_PREFIX)) {
                 $cell = substr($cell, strlen(self::TH_PREFIX));
                 $type = TableCell::TYPE_HEAD;
             }

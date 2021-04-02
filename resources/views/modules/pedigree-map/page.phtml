@@ -1,7 +1,17 @@
 <?php
 
-use Fisharebest\Webtrees\Functions\FunctionsEdit;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Tree;
+
+/**
+ * @var int        $generations
+ * @var Individual $individual
+ * @var string     $map
+ * @var int        $maxgenerations
+ * @var string     $title
+ * @var Tree       $tree
+ */
 
 ?>
 
@@ -24,7 +34,7 @@ use Fisharebest\Webtrees\I18N;
             <?= I18N::translate('Generations') ?>
         </label>
         <div class="col-sm-9 wt-page-options-value">
-            <?= view('components/select', ['name' => 'generations', 'selected' => $generations, 'options' => FunctionsEdit::numericOptions(range(2, $maxgenerations))]) ?>
+            <?= view('components/select-number', ['name' => 'generations', 'selected' => $generations, 'options' => range(2, $maxgenerations)]) ?>
         </div>
     </div>
 

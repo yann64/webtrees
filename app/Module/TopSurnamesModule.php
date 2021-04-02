@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -22,6 +22,7 @@ namespace Fisharebest\Webtrees\Module;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Functions\FunctionsPrintLists;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Illuminate\Database\Capsule\Manager as DB;
@@ -96,7 +97,7 @@ class TopSurnamesModule extends AbstractModule implements ModuleBlockInterface
         $top_surnames = DB::table('name')
             ->where('n_file', '=', $tree->id())
             ->where('n_type', '<>', '_MARNM')
-            ->whereNotIn('n_surn', ['@N.N.', ''])
+            ->whereNotIn('n_surn', [Individual::NOMEN_NESCIO, ''])
             ->groupBy(['n_surn'])
             ->orderByDesc(new Expression('COUNT(n_surn)'))
             ->take($num)
@@ -111,21 +112,28 @@ class TopSurnamesModule extends AbstractModule implements ModuleBlockInterface
                 ->groupBy(['surname'])
                 ->select([new Expression('n_surname /*! COLLATE utf8_bin */ AS surname'), new Expression('count(*) AS total')])
                 ->pluck('total', 'surname')
+                ->map(static function ($n): int {
+                    // Some database drivers return numeric columns strings.
+                    return (int) $n;
+                })
                 ->all();
 
             $all_surnames[$top_surname] = $variants;
         }
-        
+
         // Find a module providing individual lists.
         $module = $this->module_service
             ->findByComponent(ModuleListInterface::class, $tree, Auth::user())
             ->first(static function (ModuleInterface $module): bool {
-                return $module instanceof IndividualListModule;
+                // The family list extends the individual list
+                return
+                    $module instanceof IndividualListModule &&
+                    !$module instanceof FamilyListModule;
             });
-        
+
         switch ($infoStyle) {
             case 'tagcloud':
-                uksort($all_surnames, [I18N::class, 'strcasecmp']);
+                uksort($all_surnames, I18N::comparator());
                 $content = FunctionsPrintLists::surnameTagCloud($all_surnames, $module, true, $tree);
                 break;
             case 'list':
@@ -227,8 +235,8 @@ class TopSurnamesModule extends AbstractModule implements ModuleBlockInterface
      */
     public function editBlockConfiguration(Tree $tree, int $block_id): string
     {
-        $num       = $this->getBlockSetting($block_id, 'num', self::DEFAULT_NUMBER);
-        $infoStyle = $this->getBlockSetting($block_id, 'infoStyle', self::DEFAULT_STYLE);
+        $num        = $this->getBlockSetting($block_id, 'num', self::DEFAULT_NUMBER);
+        $info_style = $this->getBlockSetting($block_id, 'infoStyle', self::DEFAULT_STYLE);
 
         $info_styles = [
             /* I18N: An option in a list-box */
@@ -243,7 +251,7 @@ class TopSurnamesModule extends AbstractModule implements ModuleBlockInterface
 
         return view('modules/top10_surnames/config', [
             'num'         => $num,
-            'infoStyle'   => $infoStyle,
+            'info_style'  => $info_style,
             'info_styles' => $info_styles,
         ]);
     }

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -28,6 +28,10 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 use function assert;
 use function e;
+use function pathinfo;
+use function strtolower;
+
+use const PATHINFO_EXTENSION;
 
 /**
  * Show download forms/optiosn.
@@ -50,9 +54,17 @@ class ExportGedcomPage implements RequestHandlerInterface
 
         $this->layout = 'layouts/administration';
 
+        $filename = $tree->name();
+
+        // Force a ".ged" suffix
+        if (strtolower(pathinfo($filename, PATHINFO_EXTENSION)) !== 'ged') {
+            $filename .= '.ged';
+        }
+
         return $this->viewResponse('admin/trees-export', [
-            'title' => $title,
-            'tree'  => $tree,
+            'filename' => $filename,
+            'title'    => $title,
+            'tree'     => $tree,
         ]);
     }
 }

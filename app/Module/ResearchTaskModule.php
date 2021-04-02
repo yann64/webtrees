@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -21,10 +21,14 @@ namespace Fisharebest\Webtrees\Module;
 
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Carbon;
+use Fisharebest\Webtrees\Elements\ResearchTask;
+use Fisharebest\Webtrees\Elements\TransmissionDate;
+use Fisharebest\Webtrees\Elements\WebtreesUser;
 use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\GedcomRecord;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Tree;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Database\Query\JoinClause;
@@ -43,15 +47,20 @@ class ResearchTaskModule extends AbstractModule implements ModuleBlockInterface
     private const DEFAULT_SHOW_UNASSIGNED = '1';
     private const DEFAULT_SHOW_FUTURE     = '1';
 
-    /**
-     * How should this module be identified in the control panel, etc.?
-     *
-     * @return string
-     */
-    public function title(): string
+    // Pagination
+    private const LIMIT_LOW  = 10;
+    private const LIMIT_HIGH = 20;
+
+    public function boot(): void
     {
-        /* I18N: Name of a module. Tasks that need further research. */
-        return I18N::translate('Research tasks');
+        Registry::elementFactory()->register([
+            'FAM:_TODO'           => new ResearchTask(I18N::translate('Research task')),
+            'FAM:_TODO:DATE'      => new TransmissionDate(I18N::translate('Date')),
+            'FAM:_TODO:_WT_USER'  => new WebtreesUser(I18N::translate('User')),
+            'INDI:_TODO'          => new ResearchTask(I18N::translate('Research task')),
+            'INDI:_TODO:DATE'     => new TransmissionDate(I18N::translate('Date')),
+            'INDI:_TODO:_WT_USER' => new WebtreesUser(I18N::translate('User')),
+        ]);
     }
 
     /**
@@ -89,7 +98,7 @@ class ResearchTaskModule extends AbstractModule implements ModuleBlockInterface
 
         $records = $individuals->merge($families);
 
-        $tasks = [];
+        $tasks = new Collection();
 
         foreach ($records as $record) {
             foreach ($record->facts(['_TODO']) as $task) {
@@ -97,13 +106,13 @@ class ResearchTaskModule extends AbstractModule implements ModuleBlockInterface
 
                 if ($user_name === Auth::user()->userName()) {
                     // Tasks belonging to us.
-                    $tasks[] = $task;
+                    $tasks->add($task);
                 } elseif ($user_name === '' && $show_unassigned) {
                     // Tasks belonging to nobody.
-                    $tasks[] = $task;
+                    $tasks->add($task);
                 } elseif ($user_name !== '' && $show_other) {
                     // Tasks belonging to others.
-                    $tasks[] = $task;
+                    $tasks->add($task);
                 }
             }
         }
@@ -111,7 +120,11 @@ class ResearchTaskModule extends AbstractModule implements ModuleBlockInterface
         if ($records->isEmpty()) {
             $content = '<p>' . I18N::translate('There are no research tasks in this family tree.') . '</p>';
         } else {
-            $content = view('modules/todo/research-tasks', ['tasks' => $tasks]);
+            $content = view('modules/todo/research-tasks', [
+                'limit_low'  => self::LIMIT_LOW,
+                'limit_high' => self::LIMIT_HIGH,
+                'tasks'      => $tasks,
+            ]);
         }
 
         if ($context !== self::CONTEXT_EMBED) {
@@ -125,6 +138,65 @@ class ResearchTaskModule extends AbstractModule implements ModuleBlockInterface
         }
 
         return $content;
+    }
+
+    /**
+     * @param Tree $tree
+     * @param int  $max_julian_day
+     *
+     * @return Collection<Individual>
+     */
+    private function individualsWithTasks(Tree $tree, int $max_julian_day): Collection
+    {
+        return DB::table('individuals')
+            ->join('dates', static function (JoinClause $join): void {
+                $join
+                    ->on('i_file', '=', 'd_file')
+                    ->on('i_id', '=', 'd_gid');
+            })
+            ->where('i_file', '=', $tree->id())
+            ->where('d_fact', '=', '_TODO')
+            ->where('d_julianday1', '<', $max_julian_day)
+            ->select(['individuals.*'])
+            ->distinct()
+            ->get()
+            ->map(Registry::individualFactory()->mapper($tree))
+            ->filter(GedcomRecord::accessFilter());
+    }
+
+    /**
+     * @param Tree $tree
+     * @param int  $max_julian_day
+     *
+     * @return Collection<Family>
+     */
+    private function familiesWithTasks(Tree $tree, int $max_julian_day): Collection
+    {
+        return DB::table('families')
+            ->join('dates', static function (JoinClause $join): void {
+                $join
+                    ->on('f_file', '=', 'd_file')
+                    ->on('f_id', '=', 'd_gid');
+            })
+            ->where('f_file', '=', $tree->id())
+            ->where('d_fact', '=', '_TODO')
+            ->where('d_julianday1', '<', $max_julian_day)
+            ->select(['families.*'])
+            ->distinct()
+            ->get()
+            ->map(Registry::familyFactory()->mapper($tree))
+            ->filter(GedcomRecord::accessFilter());
+    }
+
+    /**
+     * How should this module be identified in the control panel, etc.?
+     *
+     * @return string
+     */
+    public function title(): string
+    {
+        /* I18N: Name of a module. Tasks that need further research. */
+        return I18N::translate('Research tasks');
     }
 
     /**
@@ -163,7 +235,7 @@ class ResearchTaskModule extends AbstractModule implements ModuleBlockInterface
      * Update the configuration for a block.
      *
      * @param ServerRequestInterface $request
-     * @param int     $block_id
+     * @param int                    $block_id
      *
      * @return void
      */
@@ -195,53 +267,5 @@ class ResearchTaskModule extends AbstractModule implements ModuleBlockInterface
             'show_other'      => $show_other,
             'show_unassigned' => $show_unassigned,
         ]);
-    }
-
-    /**
-     * @param Tree $tree
-     * @param int  $max_julian_day
-     *
-     * @return Collection<Family>
-     */
-    private function familiesWithTasks(Tree $tree, int $max_julian_day): Collection
-    {
-        return DB::table('families')
-            ->join('dates', static function (JoinClause $join): void {
-                $join
-                    ->on('f_file', '=', 'd_file')
-                    ->on('f_id', '=', 'd_gid');
-            })
-            ->where('f_file', '=', $tree->id())
-            ->where('d_fact', '=', '_TODO')
-            ->where('d_julianday1', '<', $max_julian_day)
-            ->select(['families.*'])
-            ->distinct()
-            ->get()
-            ->map(Family::rowMapper($tree))
-            ->filter(GedcomRecord::accessFilter());
-    }
-
-    /**
-     * @param Tree $tree
-     * @param int  $max_julian_day
-     *
-     * @return Collection<Individual>
-     */
-    private function individualsWithTasks(Tree $tree, int $max_julian_day): Collection
-    {
-        return DB::table('individuals')
-            ->join('dates', static function (JoinClause $join): void {
-                $join
-                    ->on('i_file', '=', 'd_file')
-                    ->on('i_id', '=', 'd_gid');
-            })
-            ->where('i_file', '=', $tree->id())
-            ->where('d_fact', '=', '_TODO')
-            ->where('d_julianday1', '<', $max_julian_day)
-            ->select(['individuals.*'])
-            ->distinct()
-            ->get()
-            ->map(Individual::rowMapper($tree))
-            ->filter(GedcomRecord::accessFilter());
     }
 }

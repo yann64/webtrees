@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -21,7 +21,6 @@ namespace Fisharebest\Webtrees\Services;
 
 use Fisharebest\Webtrees\I18N;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use SQLite3;
 
 use function array_map;
@@ -32,8 +31,8 @@ use function explode;
 use function extension_loaded;
 use function function_exists;
 use function in_array;
-use function preg_replace;
-use function strpos;
+use function str_ends_with;
+use function str_starts_with;
 use function strtolower;
 use function sys_get_temp_dir;
 use function trim;
@@ -52,10 +51,9 @@ class ServerCheckService
     private const PHP_SUPPORT_URL   = 'https://www.php.net/supported-versions.php';
     private const PHP_MINOR_VERSION = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
     private const PHP_SUPPORT_DATES = [
-        '7.1' => '2019-12-01',
-        '7.2' => '2020-11-30',
         '7.3' => '2021-12-06',
         '7.4' => '2022-11-28',
+        '8.0' => '2023-11-26',
     ];
 
     // As required by illuminate/database 5.8
@@ -97,8 +95,10 @@ class ServerCheckService
         $warnings = Collection::make([
             $this->databaseDriverWarnings($driver),
             $this->checkPhpExtension('curl'),
+            $this->checkPhpExtension('exif'),
             $this->checkPhpExtension('fileinfo'),
             $this->checkPhpExtension('gd'),
+            $this->checkPhpExtension('intl'),
             $this->checkPhpExtension('zip'),
             $this->checkPhpExtension('simplexml'),
             $this->checkPhpIni('file_uploads', true),
@@ -186,7 +186,7 @@ class ServerCheckService
     }
 
     /**
-     * Some servers configure their temporary folder in an unaccessible place.
+     * Some servers configure their temporary folder in an inaccessible place.
      */
     private function checkPhpVersion(): string
     {
@@ -220,7 +220,7 @@ class ServerCheckService
     }
 
     /**
-     * Some servers configure their temporary folder in an unaccessible place.
+     * Some servers configure their temporary folder in an inaccessible place.
      */
     private function checkSystemTemporaryFolder(): string
     {
@@ -239,7 +239,7 @@ class ServerCheckService
         foreach ($open_basedirs as $dir) {
             $dir = $this->normalizeFolder($dir);
 
-            if (strpos($sys_temp_dir, $dir) === 0) {
+            if (str_starts_with($sys_temp_dir, $dir)) {
                 return '';
             }
         }
@@ -264,10 +264,13 @@ class ServerCheckService
      */
     private function normalizeFolder(string $path): string
     {
-        $path = preg_replace('/[\\/]+/', '/', $path);
-        $path = Str::finish($path, '/');
+        $path = strtr($path, ['\\' => '/']);
 
-        return $path;
+        if (str_ends_with($path, '/')) {
+            return $path;
+        }
+
+        return $path . '/';
     }
 
     /**

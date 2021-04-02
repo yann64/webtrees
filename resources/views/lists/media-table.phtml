@@ -1,9 +1,17 @@
 <?php
 
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Media;
+use Fisharebest\Webtrees\Tree;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\JoinClause;
+use Illuminate\Support\Collection;
+
+/**
+ * @var Collection<Media> $media_objects
+ * @var Tree              $tree
+ */
 
 ?>
 
@@ -16,7 +24,7 @@ $count_individuals = DB::table('individuals')
         $join->on('l_from', '=', 'i_id');
         $join->on('l_file', '=', 'i_file');
     })
-    ->where('l_type', '=', 'NOTE')
+    ->where('l_type', '=', 'OBJE')
     ->where('l_file', '=', $tree->id())
     ->groupBy(['l_to'])
     ->select(['l_to', new Expression('COUNT(*) AS total')])
@@ -28,7 +36,7 @@ $count_families = DB::table('families')
         $join->on('l_from', '=', 'f_id');
         $join->on('l_file', '=', 'f_file');
     })
-    ->where('l_type', '=', 'NOTE')
+    ->where('l_type', '=', 'OBJE')
     ->where('l_file', '=', $tree->id())
     ->groupBy(['l_to'])
     ->select(['l_to', new Expression('COUNT(*) AS total')])
@@ -40,7 +48,7 @@ $count_sources = DB::table('sources')
         $join->on('l_from', '=', 's_id');
         $join->on('l_file', '=', 's_file');
     })
-    ->where('l_type', '=', 'NOTE')
+    ->where('l_type', '=', 'OBJE')
     ->where('l_file', '=', $tree->id())
     ->groupBy(['l_to'])
     ->select(['l_to', new Expression('COUNT(*) AS total')])
@@ -77,7 +85,7 @@ $count_sources = DB::table('sources')
 
     <tbody>
         <?php foreach ($media_objects as $media_object) : ?>
-            <tr class="<?= $media_object->isPendingDeletion() ? 'wt-old' : ($media_object->isPendingAddition() ? 'wt-new' : '') ?>">
+            <tr class="<?= $media_object->isPendingAddition() ? 'wt-new' : '' ?> <?= $media_object->isPendingDeletion() ? 'wt-old' : '' ?>">
                 <!-- Thumbnails-->
                 <td data-sort="<?= e($media_object->sortName()) ?>">
                     <?php foreach ($media_object->mediaFiles() as $media_file) : ?>

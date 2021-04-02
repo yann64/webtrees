@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -21,6 +21,7 @@ namespace Fisharebest\Webtrees\Http\RequestHandlers;
 
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\MediaFileService;
 use Fisharebest\Webtrees\Services\PendingChangesService;
 use Fisharebest\Webtrees\Tree;
@@ -30,6 +31,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 use function assert;
 use function in_array;
+use function response;
 
 /**
  * Process a form to create a new media object.
@@ -67,30 +69,19 @@ class CreateMediaObjectAction implements RequestHandlerInterface
         assert($tree instanceof Tree);
 
         $params              = (array) $request->getParsedBody();
-        $note                = $params['media-note'];
-        $title               = $params['title'];
-        $type                = $params['type'];
-        $privacy_restriction = $params['privacy-restriction'];
-        $edit_restriction    = $params['edit-restriction'];
+        $note                = $params['media-note'] ?? '';
+        $title               = $params['title'] ?? '';
+        $type                = $params['type'] ?? '';
+        $privacy_restriction = $params['privacy-restriction'] ?? '';
+        $edit_restriction    = $params['edit-restriction'] ?? '';
 
-        // Tidy whitespace
-        $type  = trim(preg_replace('/\s+/', ' ', $type));
-        $title = trim(preg_replace('/\s+/', ' ', $title));
-
-        // Convert HTML line endings to GEDCOM continuations
-        $note = strtr($note, ["\r\n" => "\n2 CONT "]);
-        
         $file = $this->media_file_service->uploadFile($request);
 
         if ($file === '') {
             return response(['error_message' => I18N::translate('There was an error uploading your file.')], StatusCodeInterface::STATUS_NOT_ACCEPTABLE);
         }
 
-        $gedcom = "0 @@ OBJE\n" . $this->media_file_service->createMediaFileGedcom($file, $type, $title);
-
-        if ($note !== '') {
-            $gedcom .= "\n1 NOTE " . $note;
-        }
+        $gedcom = "0 @@ OBJE\n" . $this->media_file_service->createMediaFileGedcom($file, $type, $title, $note);
 
         if (in_array($privacy_restriction, $this->media_file_service::PRIVACY_RESTRICTIONS, true)) {
             $gedcom .= "\n1 RESN " . $privacy_restriction;
@@ -101,6 +92,7 @@ class CreateMediaObjectAction implements RequestHandlerInterface
         }
 
         $record = $tree->createMediaObject($gedcom);
+        $record = Registry::mediaFactory()->new($record->xref(), $record->gedcom(), null, $tree);
 
         // Accept the new record to keep the filesystem synchronized with the genealogy.
         $this->pending_changes_service->acceptRecord($record);
@@ -108,7 +100,7 @@ class CreateMediaObjectAction implements RequestHandlerInterface
         // id and text are for select2 / autocomplete
         // html is for interactive modals
         return response([
-            'id'   => $record->xref(),
+            'id'   => '@' . $record->xref() . '@',
             'text' => view('selects/media', [
                 'media' => $record,
             ]),

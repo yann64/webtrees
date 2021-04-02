@@ -91,7 +91,7 @@ return new class extends AbstractModule implements ModuleCustomInterface {
     }
 
     /**
-     * Where to get support for this module.  Perhaps a github respository?
+     * Where to get support for this module.  Perhaps a github repository?
      *
      * @return string
      */
@@ -105,7 +105,7 @@ return new class extends AbstractModule implements ModuleCustomInterface {
      *
      * @param string $language
      *
-     * @return string[]
+     * @return array<string>
      */
     public function customTranslations(string $language): array
     {
@@ -130,7 +130,7 @@ return new class extends AbstractModule implements ModuleCustomInterface {
     }
 
     /**
-     * @return array
+     * @return array<string,string>
      */
     protected function englishTranslations(): array
     {
@@ -145,7 +145,7 @@ return new class extends AbstractModule implements ModuleCustomInterface {
     }
 
     /**
-     * @return array
+     * @return array<string,string>
      */
     protected function frenchTranslations(): array
     {

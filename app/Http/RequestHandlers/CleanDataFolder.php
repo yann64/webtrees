@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -21,14 +21,15 @@ namespace Fisharebest\Webtrees\Http\RequestHandlers;
 
 use Fisharebest\Webtrees\Http\ViewResponseTrait;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\TreeService;
-use League\Flysystem\FilesystemInterface;
+use League\Flysystem\Filesystem;
+use League\Flysystem\FilesystemException;
+use League\Flysystem\StorageAttributes;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-use function array_map;
-use function assert;
 use function explode;
 
 /**
@@ -58,8 +59,7 @@ class CleanDataFolder implements RequestHandlerInterface
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $data_filesystem = $request->getAttribute('filesystem.data');
-        assert($data_filesystem instanceof FilesystemInterface);
+        $data_filesystem = Registry::filesystem()->data();
 
         $this->layout = 'layouts/administration';
 
@@ -83,13 +83,20 @@ class CleanDataFolder implements RequestHandlerInterface
         }
 
         // List the top-level contents of the data folder
-        $entries = array_map(static function (array $content) {
-            if ($content['type'] === 'dir') {
-                return $content['path'] . '/';
-            }
+        try {
+            $entries = $data_filesystem->listContents('', Filesystem::LIST_SHALLOW)
+                ->map(static function (StorageAttributes $attributes): string {
+                    if ($attributes->isDir()) {
+                        return $attributes->path() . '/';
+                    }
 
-            return $content['path'];
-        }, $data_filesystem->listContents());
+                    return $attributes->path();
+                })
+                ->toArray();
+        } catch (FilesystemException $ex) {
+            $entries = [];
+        }
+
 
         return $this->viewResponse('admin/clean-data', [
             'title'     => I18N::translate('Clean up data folder'),

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -22,13 +22,15 @@ namespace Fisharebest\Webtrees;
 /**
  * Application configuration data. Data here has no GUI to edit it,
  * although most of it can be altered to customise local installations.
+ *
+ * @deprecated since 2.0.7.  Will be removed in 2.1.0
  */
 class Config
 {
     /**
      * NPFX tags - name prefixes
      *
-     * @return string[]
+     * @return array<string>
      */
     public static function namePrefixes(): array
     {
@@ -74,7 +76,7 @@ class Config
     /**
      * FILE:FORM tags - file formats
      *
-     * @return string[]
+     * @return array<string>
      */
     public static function fileFormats(): array
     {
@@ -95,7 +97,7 @@ class Config
     /**
      * Facts and events that don't normally have a value
      *
-     * return string[]
+     * @return array<string>
      */
     public static function emptyFacts(): array
     {
@@ -152,7 +154,7 @@ class Config
     /**
      * Tags that don't require a PLAC subtag
      *
-     * @return string[]
+     * @return array<string>
      */
     public static function nonPlaceFacts(): array
     {
@@ -168,7 +170,7 @@ class Config
     /**
      * Tags that don't require a DATE subtag
      *
-     * @return string[]
+     * @return array<string>
      */
     public static function nonDateFacts(): array
     {
@@ -206,7 +208,7 @@ class Config
     /**
      * Tags that require a DATE:TIME as well as a DATE
      *
-     * @return string[]
+     * @return array<string>
      */
     public static function dateAndTime(): array
     {
@@ -220,7 +222,7 @@ class Config
      * Level 2 tags that apply to specific Level 1 tags
      * Tags are applied in the order they appear here.
      *
-     * @return string[][]
+     * @return array<string,array<string>>
      */
     public static function levelTwoTags(): array
     {
@@ -433,7 +435,7 @@ class Config
      * A list of facts/events that generally have two associates
      * (two witnesses, two godparents, etc.)
      *
-     * @return string[]
+     * @return array<string>
      */
     public static function twoAssociates(): array
     {

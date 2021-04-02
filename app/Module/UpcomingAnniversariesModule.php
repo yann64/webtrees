@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -21,8 +21,8 @@ namespace Fisharebest\Webtrees\Module;
 
 use Fisharebest\Webtrees\Carbon;
 use Fisharebest\Webtrees\Gedcom;
-use Fisharebest\Webtrees\GedcomTag;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\CalendarService;
 use Fisharebest\Webtrees\Tree;
 use Illuminate\Support\Str;
@@ -41,42 +41,51 @@ class UpcomingAnniversariesModule extends AbstractModule implements ModuleBlockI
     private const DEFAULT_SORT   = 'alpha';
     private const DEFAULT_STYLE  = 'table';
 
+    // Initial sorting for datatables
+    private const DATATABLES_ORDER = [
+        'alpha' => [[0, 'asc']],
+        'anniv' => [[1, 'asc']],
+    ];
+
     // Can show this number of days into the future.
-    private const MIN_DAYS = 1;
     private const MAX_DAYS = 30;
+
+    // Pagination
+    private const LIMIT_LOW  = 10;
+    private const LIMIT_HIGH = 20;
 
     // All standard GEDCOM 5.5.1 events except CENS, RESI and EVEN
     private const ALL_EVENTS = [
-        'ADOP',
-        'ANUL',
-        'BAPM',
-        'BARM',
-        'BASM',
-        'BIRT',
-        'BLES',
-        'BURI',
-        'CHR',
-        'CHRA',
-        'CONF',
-        'CREM',
-        'DEAT',
-        'DIV',
-        'DIVF',
-        'EMIG',
-        'ENGA',
-        'FCOM',
-        'GRAD',
-        'IMMI',
-        'MARB',
-        'MARC',
-        'MARL',
-        'MARR',
-        'MARS',
-        'NATU',
-        'ORDN',
-        'PROB',
-        'RETI',
-        'WILL',
+        'ADOP' => 'INDI:ADOP',
+        'ANUL' => 'FAM:ANUL',
+        'BAPM' => 'INDI:BAPM',
+        'BARM' => 'INDI:BARM',
+        'BASM' => 'INDI:BASM',
+        'BIRT' => 'INDI:BIRT',
+        'BLES' => 'INDI:BLES',
+        'BURI' => 'INDI:BURI',
+        'CHR'  => 'INDI:CHR',
+        'CHRA' => 'INDI:CHRA',
+        'CONF' => 'INDI:CONF',
+        'CREM' => 'INDI:CREM',
+        'DEAT' => 'INDI:DEAT',
+        'DIV'  => 'FAM:DIV',
+        'DIVF' => 'FAM:DIVF',
+        'EMIG' => 'INDI:EMIG',
+        'ENGA' => 'FAM:ENGA',
+        'FCOM' => 'INDI:FCOM',
+        'GRAD' => 'INDI:GRAD',
+        'IMMI' => 'INDI:IMMI',
+        'MARB' => 'FAM:MARB',
+        'MARC' => 'FAM:MARC',
+        'MARL' => 'FAM:MARL',
+        'MARR' => 'FAM:MARR',
+        'MARS' => 'FAM:MARS',
+        'NATU' => 'INDI:NATU',
+        'ORDN' => 'INDI:ORDN',
+        'PROB' => 'INDI:PROB',
+        'RETI' => 'INDI:RETI',
+        'WILL' => 'INDI:WILL',
     ];
 
     private const DEFAULT_EVENTS = [
@@ -157,11 +166,17 @@ class UpcomingAnniversariesModule extends AbstractModule implements ModuleBlockI
             }
         } elseif ($infoStyle === 'list') {
             $content = view('lists/anniversaries-list', [
-                'facts' => $facts,
+                'id'         => $block_id,
+                'facts'      => $facts,
+                'limit_low'  => self::LIMIT_LOW,
+                'limit_high' => self::LIMIT_HIGH,
             ]);
         } else {
             $content = view('lists/anniversaries-table', [
-                'facts' => $facts,
+                'facts'      => $facts,
+                'limit_low'  => self::LIMIT_LOW,
+                'limit_high' => self::LIMIT_HIGH,
+                'order'      => self::DATATABLES_ORDER[$sortStyle],
             ]);
         }
 
@@ -241,17 +256,17 @@ class UpcomingAnniversariesModule extends AbstractModule implements ModuleBlockI
     {
         $default_events = implode(',', self::DEFAULT_EVENTS);
 
-        $days      = (int) $this->getBlockSetting($block_id, 'days', self::DEFAULT_DAYS);
-        $filter    = $this->getBlockSetting($block_id, 'filter', self::DEFAULT_FILTER);
-        $infoStyle = $this->getBlockSetting($block_id, 'infoStyle', self::DEFAULT_STYLE);
-        $sortStyle = $this->getBlockSetting($block_id, 'sortStyle', self::DEFAULT_SORT);
-        $events    = $this->getBlockSetting($block_id, 'events', $default_events);
+        $days       = (int) $this->getBlockSetting($block_id, 'days', self::DEFAULT_DAYS);
+        $filter     = $this->getBlockSetting($block_id, 'filter', self::DEFAULT_FILTER);
+        $info_style = $this->getBlockSetting($block_id, 'infoStyle', self::DEFAULT_STYLE);
+        $sort_style = $this->getBlockSetting($block_id, 'sortStyle', self::DEFAULT_SORT);
+        $events     = $this->getBlockSetting($block_id, 'events', $default_events);
 
         $event_array = explode(',', $events);
 
         $all_events = [];
-        foreach (self::ALL_EVENTS as $event) {
-            $all_events[$event] = GedcomTag::getLabel($event);
+        foreach (self::ALL_EVENTS as $event => $tag) {
+            $all_events[$event] = Registry::elementFactory()->make($tag)->label();
         }
 
         $info_styles = [
@@ -273,10 +288,10 @@ class UpcomingAnniversariesModule extends AbstractModule implements ModuleBlockI
             'days'        => $days,
             'event_array' => $event_array,
             'filter'      => $filter,
-            'infoStyle'   => $infoStyle,
+            'info_style'  => $info_style,
             'info_styles' => $info_styles,
             'max_days'    => self::MAX_DAYS,
-            'sortStyle'   => $sortStyle,
+            'sort_style'  => $sort_style,
             'sort_styles' => $sort_styles,
         ]);
     }

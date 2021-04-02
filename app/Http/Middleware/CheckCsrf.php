@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -53,22 +53,22 @@ class CheckCsrf implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if ($request->getMethod() === RequestMethodInterface::METHOD_POST) {
-            $params = (array) $request->getParsedBody();
+            $route = $request->getAttribute('route');
 
-            $route = $params['route'] ?? '';
-
-            if (!in_array($route, self::EXCLUDE_ROUTES, true)) {
+            if (!in_array($route->name, self::EXCLUDE_ROUTES, true)) {
+                $params        = (array) $request->getParsedBody();
                 $client_token  = $params['_csrf'] ?? $request->getHeaderLine('X-CSRF-TOKEN');
                 $session_token = Session::get('CSRF_TOKEN');
+
+                unset($params['_csrf']);
+
+                $request = $request->withParsedBody($params);
 
                 if ($client_token !== $session_token) {
                     FlashMessages::addMessage(I18N::translate('This form has expired. Try again.'));
 
                     return redirect((string) $request->getUri());
                 }
-
-                unset($params['_csrf']);
-                $request = $request->withParsedBody($params);
             }
         }
 

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -22,10 +22,10 @@ namespace Fisharebest\Webtrees\Module;
 use Aura\Router\RouterContainer;
 use Fig\Http\Message\RequestMethodInterface;
 use Fisharebest\Webtrees\Auth;
-use Fisharebest\Webtrees\Functions\FunctionsEdit;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Menu;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\ChartService;
 use Fisharebest\Webtrees\Tree;
 use Psr\Http\Message\ResponseInterface;
@@ -47,8 +47,7 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
 {
     use ModuleChartTrait;
 
-    private const ROUTE_NAME = 'pedigree-chart';
-    private const ROUTE_URL  = '/tree/{tree}/pedigree-{style}-{generations}/{xref}';
+    protected const ROUTE_URL  = '/tree/{tree}/pedigree-{style}-{generations}/{xref}';
 
     // Chart styles
     public const STYLE_LEFT  = 'left';
@@ -100,11 +99,11 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
         assert($router_container instanceof RouterContainer);
 
         $router_container->getMap()
-            ->get(self::ROUTE_NAME, self::ROUTE_URL, $this)
+            ->get(static::class, static::ROUTE_URL, $this)
             ->allows(RequestMethodInterface::METHOD_POST)
             ->tokens([
                 'generations' => '\d+',
-                'style'       => implode('|', array_keys($this->styles())),
+                'style'       => implode('|', array_keys($this->styles('ltr'))),
             ]);
     }
 
@@ -175,10 +174,10 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
      */
     public function chartUrl(Individual $individual, array $parameters = []): string
     {
-        return route(self::ROUTE_NAME, [
+        return route(static::class, [
                 'xref' => $individual->xref(),
                 'tree' => $individual->tree()->name(),
-            ] + $parameters + self::DEFAULT_PARAMETERS);
+            ] + $parameters + static::DEFAULT_PARAMETERS);
     }
 
     /**
@@ -194,7 +193,7 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
         $xref = $request->getAttribute('xref');
         assert(is_string($xref));
 
-        $individual = Individual::getInstance($xref, $tree);
+        $individual = Registry::individualFactory()->make($xref, $tree);
         $individual = Auth::checkIndividualAccess($individual, false, true);
 
         $ajax        = $request->getQueryParams()['ajax'] ?? '';
@@ -206,7 +205,7 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
         if ($request->getMethod() === RequestMethodInterface::METHOD_POST) {
             $params = (array) $request->getParsedBody();
 
-            return redirect(route(self::ROUTE_NAME, [
+            return redirect(route(self::class, [
                 'tree'        => $request->getAttribute('tree')->name(),
                 'xref'        => $params['xref'],
                 'style'       => $params['style'],
@@ -214,7 +213,7 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
             ]));
         }
 
-        Auth::checkComponentAccess($this, 'chart', $tree, $user);
+        Auth::checkComponentAccess($this, ModuleChartInterface::class, $tree, $user);
 
         $generations = min($generations, self::MAXIMUM_GENERATIONS);
         $generations = max($generations, self::MINIMUM_GENERATIONS);
@@ -249,6 +248,7 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
                 'style'       => $style,
                 'layout'      => 'right',
                 'links'       => $links,
+                'spacer'      => $this->spacer(),
             ]);
         }
 
@@ -262,14 +262,25 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
         return $this->viewResponse('modules/pedigree-chart/page', [
             'ajax_url'           => $ajax_url,
             'generations'        => $generations,
-            'generation_options' => $this->generationOptions(),
             'individual'         => $individual,
             'module'             => $this->name(),
+            'max_generations'    => self::MAXIMUM_GENERATIONS,
+            'min_generations'    => self::MINIMUM_GENERATIONS,
             'style'              => $style,
-            'styles'             => $this->styles(),
+            'styles'             => $this->styles(I18N::direction()),
             'title'              => $this->chartTitle($individual),
             'tree'               => $tree,
         ]);
+    }
+
+    /**
+     * A link-sized spacer, to maintain the chart layout
+     *
+     * @return string
+     */
+    public function spacer(): string
+    {
+        return '<span class="px-2">' . view('icons/spacer') . '</span>';
     }
 
     /**
@@ -362,25 +373,29 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
     }
 
     /**
-     * @return string[]
-     */
-    protected function generationOptions(): array
-    {
-        return FunctionsEdit::numericOptions(range(self::MINIMUM_GENERATIONS, self::MAXIMUM_GENERATIONS));
-    }
-
-    /**
      * This chart can display its output in a number of styles
      *
-     * @return string[]
+     * @param string $direction
+     *
+     * @return array<string>
      */
-    protected function styles(): array
+    protected function styles(string $direction): array
     {
+        // On right-to-left pages, the CSS will mirror the chart, so we need to mirror the label.
+        if ($direction === 'rtl') {
+            return [
+                self::STYLE_RIGHT => view('icons/pedigree-left') . I18N::translate('left'),
+                self::STYLE_LEFT  => view('icons/pedigree-right') . I18N::translate('right'),
+                self::STYLE_UP    => view('icons/pedigree-up') . I18N::translate('up'),
+                self::STYLE_DOWN  => view('icons/pedigree-down') . I18N::translate('down'),
+            ];
+        }
+
         return [
-            self::STYLE_LEFT  => I18N::translate('Left'),
-            self::STYLE_RIGHT => I18N::translate('Right'),
-            self::STYLE_UP    => I18N::translate('Up'),
-            self::STYLE_DOWN  => I18N::translate('Down'),
+            self::STYLE_LEFT  => view('icons/pedigree-left') . I18N::translate('left'),
+            self::STYLE_RIGHT => view('icons/pedigree-right') . I18N::translate('right'),
+            self::STYLE_UP    => view('icons/pedigree-up') . I18N::translate('up'),
+            self::STYLE_DOWN  => view('icons/pedigree-down') . I18N::translate('down'),
         ];
     }
 }

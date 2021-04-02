@@ -1,11 +1,24 @@
 <?php
 
 use Fisharebest\Webtrees\Auth;
-use Fisharebest\Webtrees\Functions\FunctionsPrint;
+use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Functions\FunctionsPrintFacts;
 use Fisharebest\Webtrees\Http\RequestHandlers\PendingChangesAcceptRecord;
 use Fisharebest\Webtrees\Http\RequestHandlers\PendingChangesRejectRecord;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Submitter;
+use Fisharebest\Webtrees\Tree;
+use Illuminate\Support\Collection;
+
+/**
+ * @var Collection<Fact>       $facts
+ * @var Collection<Family>     $families
+ * @var Collection<Individual> $individuals
+ * @var Submitter              $submitter
+ * @var Tree                   $tree
+ */
 
 ?>
 
@@ -34,18 +47,20 @@ use Fisharebest\Webtrees\I18N;
 
 <div class="wt-page-content">
     <ul class="nav nav-tabs" role="tablist">
-        <li class="nav-item">
+        <li class="nav-item" role="presentation">
             <a class="nav-link active" data-toggle="tab" role="tab" href="#details">
                 <?= I18N::translate('Details') ?>
             </a>
         </li>
-        <li class="nav-item">
+
+        <li class="nav-item" role="presentation">
             <a class="nav-link<?= $individuals->isEmpty() ? ' text-muted' : '' ?>" data-toggle="tab" role="tab" href="#individuals">
                 <?= I18N::translate('Individuals') ?>
                 <?= view('components/badge', ['count' => $individuals->count()]) ?>
             </a>
         </li>
-        <li class="nav-item">
+
+        <li class="nav-item" role="presentation">
             <a class="nav-link<?= $families->isEmpty() ? ' text-muted' : '' ?>" data-toggle="tab" role="tab" href="#families">
                 <?= I18N::translate('Families') ?>
                 <?= view('components/badge', ['count' => $families->count()]) ?>
@@ -59,10 +74,6 @@ use Fisharebest\Webtrees\I18N;
                 <?php foreach ($facts as $fact) : ?>
                     <?php FunctionsPrintFacts::printFact($fact, $submitter) ?>
                 <?php endforeach ?>
-
-                <?php if ($submitter->canEdit()) : ?>
-                    <?php FunctionsPrint::printAddNewFact($submitter, $facts, $submitter::RECORD_TYPE) ?>
-                <?php endif ?>
             </table>
         </div>
 

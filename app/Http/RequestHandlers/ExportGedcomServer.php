@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -23,12 +23,15 @@ use Fisharebest\Webtrees\FlashMessages;
 use Fisharebest\Webtrees\Html;
 use Fisharebest\Webtrees\Http\ViewResponseTrait;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\Services\GedcomExportService;
 use Fisharebest\Webtrees\Tree;
-use League\Flysystem\FilesystemInterface;
+use League\Flysystem\FilesystemException;
+use League\Flysystem\UnableToWriteFile;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Throwable;
+use RuntimeException;
 
 use function assert;
 use function fclose;
@@ -48,6 +51,19 @@ class ExportGedcomServer implements RequestHandlerInterface
 {
     use ViewResponseTrait;
 
+    /** @var GedcomExportService */
+    private $gedcom_export_service;
+
+    /**
+     * ExportGedcomServer constructor.
+     *
+     * @param GedcomExportService $gedcom_export_service
+     */
+    public function __construct(GedcomExportService $gedcom_export_service)
+    {
+        $this->gedcom_export_service = $gedcom_export_service;
+    }
+
     /**
      * @param ServerRequestInterface $request
      *
@@ -58,10 +74,11 @@ class ExportGedcomServer implements RequestHandlerInterface
         $tree = $request->getAttribute('tree');
         assert($tree instanceof Tree);
 
-        $data_filesystem = $request->getAttribute('filesystem.data');
-        assert($data_filesystem instanceof FilesystemInterface);
+        $data_filesystem = Registry::filesystem()->data();
 
-        $filename = $tree->name();
+        $params = (array) $request->getParsedBody();
+
+        $filename = $params['filename'] ?? $tree->name();
 
         // Force a ".ged" suffix
         if (strtolower(pathinfo($filename, PATHINFO_EXTENSION)) !== 'ged') {
@@ -70,21 +87,26 @@ class ExportGedcomServer implements RequestHandlerInterface
 
         try {
             $stream = fopen('php://temp', 'wb+');
-            $tree->exportGedcom($stream);
+
+            if ($stream === false) {
+                throw new RuntimeException('Failed to create temporary stream');
+            }
+
+            $this->gedcom_export_service->export($tree, $stream, true);
             rewind($stream);
-            $data_filesystem->putStream($filename, $stream);
+            $data_filesystem->writeStream($filename, $stream);
             fclose($stream);
 
             /* I18N: %s is a filename */
             FlashMessages::addMessage(I18N::translate('The family tree has been exported to %s.', Html::filename($filename)), 'success');
-        } catch (Throwable $ex) {
+        } catch (FilesystemException | UnableToWriteFile $ex) {
             FlashMessages::addMessage(
                 I18N::translate('The file %s could not be created.', Html::filename($filename)) . '<hr><samp dir="ltr">' . $ex->getMessage() . '</samp>',
                 'danger'
             );
         }
 
-        $url = route('manage-trees', ['tree' => $tree->name()]);
+        $url = route(ManageTrees::class, ['tree' => $tree->name()]);
 
         return redirect($url);
     }

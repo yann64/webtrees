@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -24,7 +24,7 @@ namespace Fisharebest\Webtrees;
  */
 class Menu
 {
-    /** @var string The text to be displayed in the mneu */
+    /** @var string The text to be displayed in the menu */
     private $label;
 
     /** @var string The target URL or href */
@@ -48,8 +48,13 @@ class Menu
      * @param string[] $attrs    Optional attributes, such as onclick or data-xxx
      * @param Menu[]   $submenus Any submenus
      */
-    public function __construct($label, $link = '#', $class = '', array $attrs = [], array $submenus = [])
-    {
+    public function __construct(
+        string $label,
+        string $link = '#',
+        string $class = '',
+        array $attrs = [],
+        array $submenus = []
+    ) {
         $this
             ->setLabel($label)
             ->setLink($link)
@@ -59,51 +64,9 @@ class Menu
     }
 
     /**
-     * Render this menu using Bootstrap4 markup
-     *
-     * @return string
-     */
-    public function bootstrap4(): string
-    {
-        if ($this->submenus !== []) {
-            $submenus = '';
-            foreach ($this->submenus as $submenu) {
-                $attrs = '';
-                foreach ($submenu->attrs as $key => $value) {
-                    $attrs .= ' ' . $key . '="' . e($value) . '"';
-                }
-
-                $class = trim('dropdown-item ' . $submenu->class);
-                $submenus .= '<a class="' . $class . '" href="' . e($submenu->link) . '"' . $attrs . '>' . $submenu->label . '</a>';
-            }
-
-            $class = trim('nav-item dropdown ' . $this->class);
-
-            return
-                '<li class="' . $class . '">' .
-                '<a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">' .
-                $this->label .
-                '<span class="caret"></span></a>' .
-                '<div class="dropdown-menu" role="menu">' .
-                $submenus .
-                '</div>' .
-                '</li>';
-        }
-
-        $attrs = '';
-        foreach ($this->attrs as $key => $value) {
-            $attrs .= ' ' . $key . '="' . e($value) . '"';
-        }
-
-        $class = trim('nav-item ' . $this->class);
-
-        return '<li class="' . $class . '"><a class="nav-link" href="' . e($this->link) . '"' . $attrs . '>' . $this->label . '</a></li>';
-    }
-
-    /**
      * Get the optional attributes.
      *
-     * @return string[]
+     * @return array<string>
      */
     public function getAttrs(): array
     {
@@ -141,7 +104,7 @@ class Menu
      *
      * @return $this
      */
-    public function setClass($class): self
+    public function setClass(string $class): self
     {
         $this->class = $class;
 
@@ -165,7 +128,7 @@ class Menu
      *
      * @return $this
      */
-    public function setLabel($label): self
+    public function setLabel(string $label): self
     {
         $this->label = $label;
 
@@ -189,7 +152,7 @@ class Menu
      *
      * @return $this
      */
-    public function setLink($link): self
+    public function setLink(string $link): self
     {
         $this->link = $link;
 
@@ -203,7 +166,7 @@ class Menu
      *
      * @return $this
      */
-    public function addSubmenu($menu): self
+    public function addSubmenu(Menu $menu): self
     {
         $this->submenus[] = $menu;
 

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -23,6 +23,8 @@ use Middleland\Dispatcher;
 use Nyholm\Psr7Server\ServerRequestCreator;
 
 use function app;
+use function is_file;
+use function is_string;
 use function parse_url;
 
 use const PHP_SAPI;
@@ -32,7 +34,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 if (PHP_SAPI === 'cli-server') {
     $file = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    if (file_exists($file)) {
+    if (is_string($file) && is_file($file)) {
         return false;
     }
 }

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -20,21 +20,18 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees\Http\Middleware;
 
 use Fisharebest\Localization\Locale;
-use Fisharebest\Localization\Locale\LocaleEnUs;
 use Fisharebest\Localization\Locale\LocaleInterface;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Module\LanguageEnglishUnitedStates;
 use Fisharebest\Webtrees\Module\ModuleLanguageInterface;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Session;
-use Fisharebest\Webtrees\Tree;
+use Fisharebest\Webtrees\Site;
 use Generator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-
-use function app;
 
 /**
  * Middleware to select a language.
@@ -79,13 +76,11 @@ class UseLanguage implements MiddlewareInterface
      *
      * @param ServerRequestInterface $request
      *
-     * @return Generator
+     * @return Generator<ModuleLanguageInterface|null>
      */
     private function languages(ServerRequestInterface $request): Generator
     {
-        $tree = $request->getAttribute('tree');
-
-        $languages = $this->module_service->findByInterface(ModuleLanguageInterface::class);
+        $languages = $this->module_service->findByInterface(ModuleLanguageInterface::class, true);
 
         // Last language used
         yield $languages->get('language-' . Session::get('language', ''));
@@ -96,17 +91,12 @@ class UseLanguage implements MiddlewareInterface
                 return $module->locale();
             });
 
-        if ($tree instanceof Tree) {
-            $default = Locale::create($tree->getPreference('LANGUAGE', 'en-US'));
-        } else {
-            $default = new LocaleEnUs();
-        }
-
-        $locale = Locale::httpAcceptLanguage($request->getServerParams(), $locales->all(), $default);
+        $default = Locale::create(Site::getPreference('LANGUAGE', 'en-US'));
+        $locale  = Locale::httpAcceptLanguage($request->getServerParams(), $locales->all(), $default);
 
         yield $languages->get('language-' . $locale->languageTag());
 
         // No languages enabled?  Use en-US
-        yield app(LanguageEnglishUnitedStates::class);
+        yield new LanguageEnglishUnitedStates();
     }
 }

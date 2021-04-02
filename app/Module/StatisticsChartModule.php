@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -20,7 +20,6 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees\Module;
 
 use Fisharebest\Webtrees\Auth;
-use Fisharebest\Webtrees\Date;
 use Fisharebest\Webtrees\Exceptions\HttpNotFoundException;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
@@ -43,7 +42,6 @@ use function explode;
 use function in_array;
 use function is_numeric;
 use function sprintf;
-use function strip_tags;
 
 /**
  * Class StatisticsChartModule
@@ -51,12 +49,6 @@ use function strip_tags;
 class StatisticsChartModule extends AbstractModule implements ModuleChartInterface
 {
     use ModuleChartTrait;
-
-    // We generate a bitmap chart with these dimensions in image pixels.
-    // These set the aspect ratio.  The actual image is sized using CSS
-    // The maximum size (width x height) is 300,000
-    private const CHART_WIDTH  = 950;
-    private const CHART_HEIGHT = 315;
 
     public const X_AXIS_INDIVIDUAL_MAP        = 1;
     public const X_AXIS_BIRTH_MAP             = 2;
@@ -147,7 +139,7 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
 
         $user = $request->getAttribute('user');
 
-        Auth::checkComponentAccess($this, 'chart', $tree, $user);
+        Auth::checkComponentAccess($this, ModuleChartInterface::class, $tree, $user);
 
         $tabs = [
             I18N::translate('Individuals') => route('module', [
@@ -249,6 +241,7 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
     public function postCustomChartAction(ServerRequestInterface $request): ResponseInterface
     {
         $statistics = app(Statistics::class);
+        assert($statistics instanceof Statistics);
 
         $params = (array) $request->getParsedBody();
 
@@ -493,13 +486,12 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
                         $z_axis = $this->axisAll();
                         $rows   = $statistics->statsFirstMarriageQuery()->get();
                         $indi   = [];
-                        $fam    = [];
                         foreach ($rows as $row) {
-                            if (!in_array($row->indi, $indi, true) && !in_array($row->fams, $fam, true)) {
+                            if (!in_array($row->f_husb, $indi, true) && !in_array($row->f_wife, $indi, true)) {
                                 $this->fillYData($row->month, 0, 1, $x_axis, $z_axis, $ydata);
                             }
-                            $indi[] = $row->indi;
-                            $fam[]  = $row->fams;
+                            $indi[]  = $row->f_husb;
+                            $indi[]  = $row->f_wife;
                         }
                         break;
                     case self::Z_AXIS_TIME:
@@ -507,15 +499,14 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
                         $z_axis         = $this->axisYears($boundaries_csv);
                         $prev_boundary  = 0;
                         $indi           = [];
-                        $fam            = [];
                         foreach (array_keys($z_axis) as $boundary) {
                             $rows = $statistics->statsFirstMarriageQuery($prev_boundary, $boundary)->get();
                             foreach ($rows as $row) {
-                                if (!in_array($row->indi, $indi, true) && !in_array($row->fams, $fam, true)) {
+                                if (!in_array($row->f_husb, $indi, true) && !in_array($row->f_wife, $indi, true)) {
                                     $this->fillYData($row->month, $boundary, 1, $x_axis, $z_axis, $ydata);
                                 }
-                                $indi[] = $row->indi;
-                                $fam[]  = $row->fams;
+                                $indi[]  = $row->f_husb;
+                                $indi[]  = $row->f_wife;
                             }
                             $prev_boundary = $boundary + 1;
                         }
@@ -766,12 +757,11 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
 
             default:
                 throw new HttpNotFoundException();
-                break;
         }
     }
 
     /**
-     * @return string[]
+     * @return array<string>
      */
     private function axisAll(): array
     {
@@ -781,7 +771,7 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
     }
 
     /**
-     * @return string[]
+     * @return array<string>
      */
     private function axisSexes(): array
     {
@@ -794,7 +784,7 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
     /**
      * Labels for the X axis
      *
-     * @return string[]
+     * @return array<string>
      */
     private function axisMonths(): array
     {
@@ -819,7 +809,7 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
      *
      * @param string $boundaries_csv
      *
-     * @return string[]
+     * @return array<string>
      */
     private function axisYears(string $boundaries_csv): array
     {
@@ -828,15 +818,13 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
         $axis = [];
         foreach ($boundaries as $n => $boundary) {
             if ($n === 0) {
-                $date = new Date('BEF ' . $boundary);
+                $axis[$boundary - 1] = '–' . I18N::digits($boundary);
             } else {
-                $date = new Date('BET ' . $boundaries[$n - 1] . ' AND ' . ($boundary - 1));
+                $axis[$boundary - 1] = I18N::digits($boundaries[$n - 1]) . '–' . I18N::digits($boundary);
             }
-            $axis[$boundary - 1] = strip_tags($date->display());
         }
 
-        $date              = new Date('AFT ' . $boundaries[count($boundaries) - 1]);
-        $axis[PHP_INT_MAX] = strip_tags($date->display());
+        $axis[PHP_INT_MAX] = I18N::digits($boundaries[count($boundaries) - 1]) . '–';
 
         return $axis;
     }
@@ -846,7 +834,7 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
      *
      * @param string $boundaries_csv
      *
-     * @return array
+     * @return array<string>
      */
     private function axisNumbers(string $boundaries_csv): array
     {
@@ -912,14 +900,14 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
     /**
      * Find the axis entry for a given value.
      * Some are direct lookup (e.g. M/F, JAN/FEB/MAR).
-     * Others need to find the approprate range.
+     * Others need to find the appropriate range.
      *
      * @param int|float|string $value
      * @param string[]         $axis
      *
      * @return int|string
      */
-    private function findAxisEntry($value, $axis)
+    private function findAxisEntry($value, array $axis)
     {
         if (is_numeric($value)) {
             $value = (int) $value;

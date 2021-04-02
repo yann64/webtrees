@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -83,16 +83,6 @@ class ReportBaseTextbox extends ReportBaseElement
      * @var string
      */
     public $style;
-
-    /**
-     * @var array Border style of rectangle. Array with keys among the following:
-     * <ul>
-     * <li>all: Line style of all borders. Array like for {@link SetLineStyle SetLineStyle}.</li>
-     * <li>L, T, R, B or combinations: Line style of left, top, right or bottom border. Array like for {@link SetLineStyle SetLineStyle}.</li>
-     * </ul>
-     * Not yet in use
-     * var $borderstyle;
-     */
 
     /**
      * The starting height of this cell. If the text wraps the height will automatically be adjusted

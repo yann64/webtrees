@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -20,16 +20,14 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees;
 
 use Fisharebest\Webtrees\CommonMark\CensusTableExtension;
+use Fisharebest\Webtrees\CommonMark\ResponsiveTableExtension;
 use Fisharebest\Webtrees\CommonMark\XrefExtension;
 use League\CommonMark\Block\Element\Document;
 use League\CommonMark\Block\Element\Paragraph;
 use League\CommonMark\Block\Renderer\DocumentRenderer;
 use League\CommonMark\Block\Renderer\ParagraphRenderer;
-use League\CommonMark\Converter;
-use League\CommonMark\DocParser;
+use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\Environment;
-use League\CommonMark\Ext\Table\TableExtension;
-use League\CommonMark\HtmlRenderer;
 use League\CommonMark\Inline\Element\Link;
 use League\CommonMark\Inline\Element\Text;
 use League\CommonMark\Inline\Parser\AutolinkParser;
@@ -81,26 +79,15 @@ class Filter
 
         // Create a minimal commonmark processor - just add support for autolinks.
         $environment = new Environment();
-        $environment->mergeConfig([
-            'renderer'           => [
-                'block_separator' => "\n",
-                'inner_separator' => "\n",
-                'soft_break'      => "\n",
-            ],
-            'html_input'         => Environment::HTML_INPUT_ESCAPE,
-            'allow_unsafe_links' => true,
-        ]);
-
         $environment
             ->addBlockRenderer(Document::class, new DocumentRenderer())
             ->addBlockRenderer(Paragraph::class, new ParagraphRenderer())
             ->addInlineRenderer(Text::class, new TextRenderer())
             ->addInlineRenderer(Link::class, new LinkRenderer())
             ->addInlineParser(new AutolinkParser())
-            ->addExtension(new CensusTableExtension())
             ->addExtension(new XrefExtension($tree));
 
-        $converter = new Converter(new DocParser($environment), new HtmlRenderer($environment));
+        $converter = new CommonMarkConverter(['html_input' => Environment::HTML_INPUT_ESCAPE], $environment);
 
         return $converter->convertToHtml($text);
     }
@@ -116,13 +103,16 @@ class Filter
     public static function markdown(string $text, Tree $tree): string
     {
         $environment = Environment::createCommonMarkEnvironment();
-        $environment->mergeConfig(['html_input' => Environment::HTML_INPUT_ESCAPE]);
-        $environment
-            ->addExtension(new TableExtension())
-            ->addExtension(new CensusTableExtension())
-            ->addExtension(new XrefExtension($tree));
+        $environment->addExtension(new ResponsiveTableExtension());
+        $environment->addExtension(new CensusTableExtension());
+        $environment->addExtension(new XrefExtension($tree));
 
-        $converter = new Converter(new DocParser($environment), new HtmlRenderer($environment));
+        $config = [
+            'allow_unsafe_links' => false,
+            'html_input'         => Environment::HTML_INPUT_ESCAPE,
+        ];
+
+        $converter = new CommonMarkConverter($config, $environment);
 
         return $converter->convertToHtml($text);
     }

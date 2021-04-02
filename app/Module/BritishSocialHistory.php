@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ class BritishSocialHistory extends AbstractModule implements ModuleHistoricEvent
      */
     public function title(): string
     {
-        return 'British social history';
+        return 'British social history 🇬🇧';
     }
 
     /**
@@ -56,7 +56,8 @@ class BritishSocialHistory extends AbstractModule implements ModuleHistoricEvent
     public function historicEventsAll(): Collection
     {
         return new Collection([
-            "1 EVEN Plague kills half the population.\n2 TYPE Black Death\n2 DATE FROM 1348 TO 1350",
+            "1 EVEN Bubonic plague kills half the population.\n2 TYPE Plague\n2 DATE FROM 1348 TO 1350",
+            "1 EVEN Bubonic plague returns and kills 20% the population.\n2 TYPE Plague\n2 DATE FROM 1361 TO 1362",
             "1 EVEN Uprising against serfdom and taxation, led by Wat Tyler.\n2 TYPE Peasants Revolt\n2 DATE FROM 30 MAY 1381 TO NOV 1381",
             "1 EVEN Royalists and parliamentarians battle for control of the country.\n2 TYPE English Civil War\n2 DATE FROM 22 AUG 1642 TO 03 SEP 1651",
             "1 EVEN Most of London was destroyed by fire.\n2 TYPE Great Fire of London\n2 DATE FROM 02 SEP 1666 TO 06 SEP 1666",

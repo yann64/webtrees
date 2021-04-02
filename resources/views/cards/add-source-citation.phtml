@@ -5,7 +5,18 @@ use Fisharebest\Webtrees\Functions\FunctionsEdit;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\GedcomTag;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Tree;
 use Illuminate\Support\Collection;
+
+/**
+ * @var string $bdm
+ * @var bool   $full_citations
+ * @var int    $level
+ * @var string $prefer_level2_sources
+ * @var string $quick_required_facts
+ * @var string $quick_required_famfacts
+ * @var Tree   $tree
+ */
 
 ?>
 
@@ -21,7 +32,7 @@ use Illuminate\Support\Collection;
             <div class="row">
                 <div class="col-sm-3"></div>
                 <div class="col-sm-9">
-                    <?php if (strpos($bdm, 'B') !== false) : ?>
+                    <?php if (str_contains($bdm, 'B')) : ?>
                         <label>
                             <input type="checkbox" name="SOUR_INDI" <?= $prefer_level2_sources === '2' ? 'checked' : '' ?> value="1">
                             <?= I18N::translate('Individual') ?>
@@ -36,7 +47,7 @@ use Illuminate\Support\Collection;
                         <?php endif ?>
                     <?php endif ?>
 
-                    <?php if (strpos($bdm, 'M') !== false) : ?>
+                    <?php if (str_contains($bdm, 'M')) : ?>
                         <label>
                             <input type="checkbox" name="SOUR_FAM" <?= $prefer_level2_sources === '2' ? 'checked' : '' ?> value="1">
                             <?= I18N::translate('Family') ?>

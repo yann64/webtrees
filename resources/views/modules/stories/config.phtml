@@ -1,11 +1,21 @@
 <?php
 
 use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Tree;
+use Illuminate\Support\Collection;
+
+/**
+ * @var Collection<stdClass> $stories
+ * @var string               $title
+ * @var Tree                 $tree
+ * @var array<string>        $tree_names
+ */
 
 ?>
 
-<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route('modules') => I18N::translate('Modules'), $title]]) ?>
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $title]]) ?>
 
 <h1><?= $title ?></h1>
 
@@ -29,7 +39,16 @@ use Fisharebest\Webtrees\I18N;
     </a>
 </p>
 
-<table class="table table-bordered table-sm">
+<table
+    class="table table-bordered table-sm datatables d-none"
+    <?= view('lists/datatables-attributes') ?>
+    data-columns="<?= e(json_encode([
+       null,
+       null,
+       ['sortable' => false],
+       ['sortable' => false],
+    ])) ?>"
+>
     <thead>
         <tr>
             <th><?= I18N::translate('Individual') ?></th>

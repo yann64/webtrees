@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,13 +12,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 namespace Fisharebest\Webtrees\Module;
 
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAnalyticsPage;
 use Fisharebest\Webtrees\Http\ViewResponseTrait;
 use Fisharebest\Webtrees\I18N;
 use Psr\Http\Message\ResponseInterface;
@@ -32,11 +33,6 @@ use function app;
 trait ModuleAnalyticsTrait
 {
     use ViewResponseTrait;
-
-    /**
-     * @return string
-     */
-    abstract public function name(): string;
 
     /**
      * Should we add this tracker?
@@ -66,7 +62,7 @@ trait ModuleAnalyticsTrait
     /**
      * The parameters that need to be embedded in the snippet.
      *
-     * @return string[]
+     * @return array<string>
      */
     public function analyticsParameters(): array
     {
@@ -123,13 +119,6 @@ trait ModuleAnalyticsTrait
     }
 
     /**
-     * How should this module be identified in the control panel, etc.?
-     *
-     * @return string
-     */
-    abstract public function title(): string;
-
-    /**
      * Is this a tracker, as opposed to just a site-verification.
      *
      * @return bool
@@ -154,18 +143,6 @@ trait ModuleAnalyticsTrait
             $this->setPreference($parameter, $new_value);
         }
 
-        return redirect(route('analytics'));
+        return redirect(route(ModulesAnalyticsPage::class));
     }
-
-    /**
-     * Set a module setting.
-     * Since module settings are NOT NULL, setting a value to NULL will cause
-     * it to be deleted.
-     *
-     * @param string $setting_name
-     * @param string $setting_value
-     *
-     * @return void
-     */
-    abstract public function setPreference(string $setting_name, string $setting_value): void;
 }

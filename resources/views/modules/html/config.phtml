@@ -1,8 +1,15 @@
 <?php
 
-use Fisharebest\Webtrees\Functions\FunctionsEdit;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\View;
+
+/**
+ * @var string               $html
+ * @var array<int,string>    $languages
+ * @var bool                 $show_timestamp
+ * @var array<string,string> $templates
+ * @var string               $title
+ */
 
 ?>
 
@@ -56,7 +63,7 @@ use Fisharebest\Webtrees\View;
             <?= I18N::translate('Show this block for which languages') ?>
         </legend>
         <div class="col-sm-9">
-            <?= FunctionsEdit::editLanguageCheckboxes('lang', $languages) ?>
+            <?= view('edit/language-checkboxes', ['languages' => $languages]) ?>
         </div>
     </div>
 </fieldset>

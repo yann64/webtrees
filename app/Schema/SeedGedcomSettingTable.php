@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ class SeedGedcomSettingTable implements SeedInterface
         'COMMON_NAMES_THRESHOLD'       => '40',
         'EXPAND_RELATIVES_EVENTS'      => '0',
         'EXPAND_SOURCES'               => '0',
-        'FAM_FACTS_ADD'                => 'CENS,MARR,RESI,SLGS,MARR_CIVIL,MARR_RELIGIOUS,MARR_PARTNERS,RESN',
+        'FAM_FACTS_ADD'                => 'CENS,MARR,RESI,SLGS,RESN',
         'FAM_FACTS_QUICK'              => 'MARR,DIV,_NMR',
         'FAM_FACTS_UNIQUE'             => 'NCHI,MARL,DIV,ANUL,DIVF,ENGA,MARB,MARC,MARS,_NMR',
         'FAM_ID_PREFIX'                => 'F',

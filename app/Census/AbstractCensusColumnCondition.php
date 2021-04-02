@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,13 +12,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 namespace Fisharebest\Webtrees\Census;
 
+use Fisharebest\Webtrees\Age;
 use Fisharebest\Webtrees\Date;
 use Fisharebest\Webtrees\Individual;
 
@@ -102,9 +103,9 @@ abstract class AbstractCensusColumnCondition extends AbstractCensusColumn implem
      */
     private function isChild(Individual $individual): bool
     {
-        $age = Date::getAgeYears($individual->getEstimatedBirthDate(), $this->date());
+        $age = new Age($individual->getEstimatedBirthDate(), $this->date());
 
-        return $age < static::AGE_ADULT;
+        return $age->ageYears() < static::AGE_ADULT;
     }
 
     /**

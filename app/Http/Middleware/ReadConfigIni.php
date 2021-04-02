@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,14 +12,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 namespace Fisharebest\Webtrees\Http\Middleware;
 
-use Fisharebest\Webtrees\Http\Controllers\SetupController;
+use Fisharebest\Webtrees\Http\RequestHandlers\SetupWizard;
 use Fisharebest\Webtrees\Webtrees;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -34,15 +34,15 @@ use function parse_ini_file;
  */
 class ReadConfigIni implements MiddlewareInterface
 {
-    /** @var SetupController */
-    private $setup_controller;
+    /** @var SetupWizard */
+    private $setup_wizard;
 
     /**
-     * @param SetupController $setup_controller
+     * @param SetupWizard $setup_wizard
      */
-    public function __construct(SetupController $setup_controller)
+    public function __construct(SetupWizard $setup_wizard)
     {
-        $this->setup_controller = $setup_controller;
+        $this->setup_wizard = $setup_wizard;
     }
 
     /**
@@ -61,11 +61,11 @@ class ReadConfigIni implements MiddlewareInterface
             foreach ($config as $key => $value) {
                 $request = $request->withAttribute($key, $value);
             }
-
-            return $handler->handle($request);
+        } else {
+            // No configuration file? Run the setup wizard to create one.
+            $handler = $this->setup_wizard;
         }
 
-        // No configuration file? Run the setup wizard to create one.
-        return $this->setup_controller->setup($request);
+        return $handler->handle($request);
     }
 }

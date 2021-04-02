@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -23,6 +23,7 @@ use Fisharebest\Webtrees\Module\ModuleAnalyticsInterface;
 use Fisharebest\Webtrees\Module\ModuleBlockInterface;
 use Fisharebest\Webtrees\Module\ModuleChartInterface;
 use Fisharebest\Webtrees\Module\ModuleConfigInterface;
+use Fisharebest\Webtrees\Module\ModuleDataFixInterface;
 use Fisharebest\Webtrees\Module\ModuleInterface;
 use Fisharebest\Webtrees\Module\ModuleMenuInterface;
 use Fisharebest\Webtrees\Module\ModuleReportInterface;
@@ -45,21 +46,21 @@ class ModuleServiceTest extends TestCase
      * @covers \Fisharebest\Webtrees\Services\ModuleService::all
      * @covers \Fisharebest\Webtrees\Services\ModuleService::coreModules
      * @covers \Fisharebest\Webtrees\Services\ModuleService::customModules
-     * @covers \Fisharebest\Webtrees\Services\ModuleService::moduleSorter
+     * @covers \Fisharebest\Webtrees\Services\ModuleService::moduleComparator
      * @return void
      */
     public function testAll(): void
     {
         $module_service = new ModuleService();
 
-        $this->assertNotEmpty($module_service->all());
+        self::assertNotEmpty($module_service->all());
     }
 
     /**
      * @covers \Fisharebest\Webtrees\Services\ModuleService::findByComponent
-     * @covers \Fisharebest\Webtrees\Services\ModuleService::menuSorter
-     * @covers \Fisharebest\Webtrees\Services\ModuleService::sidebarSorter
-     * @covers \Fisharebest\Webtrees\Services\ModuleService::tabSorter
+     * @covers \Fisharebest\Webtrees\Services\ModuleService::menuComparator
+     * @covers \Fisharebest\Webtrees\Services\ModuleService::sidebarComparator
+     * @covers \Fisharebest\Webtrees\Services\ModuleService::tabComparator
      * @return void
      */
     public function testFindByComponent(): void
@@ -70,12 +71,12 @@ class ModuleServiceTest extends TestCase
         $tree = $this->importTree('demo.ged');
         $user = $user_service->create('UserName', 'RealName', 'user@example.com', 'secret');
 
-        $this->assertNotEmpty($module_service->findByComponent(ModuleBlockInterface::class, $tree, $user)->all());
-        $this->assertNotEmpty($module_service->findByComponent(ModuleChartInterface::class, $tree, $user)->all());
-        $this->assertNotEmpty($module_service->findByComponent(ModuleMenuInterface::class, $tree, $user)->all());
-        $this->assertNotEmpty($module_service->findByComponent(ModuleReportInterface::class, $tree, $user)->all());
-        $this->assertNotEmpty($module_service->findByComponent(ModuleSidebarInterface::class, $tree, $user)->all());
-        $this->assertNotEmpty($module_service->findByComponent(ModuleTabInterface::class, $tree, $user)->all());
+        self::assertNotEmpty($module_service->findByComponent(ModuleBlockInterface::class, $tree, $user)->all());
+        self::assertNotEmpty($module_service->findByComponent(ModuleChartInterface::class, $tree, $user)->all());
+        self::assertNotEmpty($module_service->findByComponent(ModuleMenuInterface::class, $tree, $user)->all());
+        self::assertNotEmpty($module_service->findByComponent(ModuleReportInterface::class, $tree, $user)->all());
+        self::assertNotEmpty($module_service->findByComponent(ModuleSidebarInterface::class, $tree, $user)->all());
+        self::assertNotEmpty($module_service->findByComponent(ModuleTabInterface::class, $tree, $user)->all());
     }
 
     /**
@@ -86,19 +87,20 @@ class ModuleServiceTest extends TestCase
     {
         $module_service = new ModuleService();
 
-        $this->assertNotEmpty($module_service->findByInterface(ModuleAnalyticsInterface::class, true)->all());
-        $this->assertNotEmpty($module_service->findByInterface(ModuleBlockInterface::class, true)->all());
-        $this->assertNotEmpty($module_service->findByInterface(ModuleChartInterface::class, true)->all());
-        $this->assertNotEmpty($module_service->findByInterface(ModuleConfigInterface::class, true)->all());
-        $this->assertNotEmpty($module_service->findByInterface(ModuleMenuInterface::class, true)->all());
-        $this->assertNotEmpty($module_service->findByInterface(ModuleInterface::class, true)->all());
-        $this->assertNotEmpty($module_service->findByInterface(ModuleReportInterface::class, true)->all());
-        $this->assertNotEmpty($module_service->findByInterface(ModuleSidebarInterface::class, true)->all());
-        $this->assertNotEmpty($module_service->findByInterface(ModuleTabInterface::class, true)->all());
-        $this->assertNotEmpty($module_service->findByInterface(ModuleThemeInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleAnalyticsInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleBlockInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleChartInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleConfigInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleDataFixInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleMenuInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleReportInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleSidebarInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleTabInterface::class, true)->all());
+        self::assertNotEmpty($module_service->findByInterface(ModuleThemeInterface::class, true)->all());
 
         // Search for an invalid module type
-        $this->assertEmpty($module_service->findByInterface('not-a-valid-class-or-interface')->all());
+        self::assertEmpty($module_service->findByInterface('not-a-valid-class-or-interface')->all());
     }
 
     /**
@@ -111,7 +113,7 @@ class ModuleServiceTest extends TestCase
 
         $module_service = new ModuleService();
 
-        $this->assertSame(3, $module_service->otherModules()->count());
+        self::assertSame(3, $module_service->otherModules()->count());
     }
 
     /**
@@ -124,7 +126,7 @@ class ModuleServiceTest extends TestCase
 
         $module_service = new ModuleService();
 
-        $this->assertSame(1, $module_service->deletedModules()->count());
-        $this->assertSame('not-a-module', $module_service->deletedModules()->first());
+        self::assertSame(1, $module_service->deletedModules()->count());
+        self::assertSame('not-a-module', $module_service->deletedModules()->first());
     }
 }

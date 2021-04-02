@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -41,12 +41,12 @@ class TcpdfWrapper extends TCPDF
      *
      * @param mixed $h       Cell height. Default value: 0.
      * @param mixed $y       Starting y position, leave empty for current position.
-     * @param bool  $add_page If true add a page, otherwise only return the true/false state
+     * @param bool  $addpage If true add a page, otherwise only return the true/false state
      *
      * @return boolean true in case of page break, false otherwise.
      */
-    public function checkPageBreak($h = 0, $y = '', $add_page = true): bool
+    public function checkPageBreak($h = 0, $y = '', $addpage = true): bool
     {
-        return parent::checkPageBreak($h, $y, $add_page);
+        return parent::checkPageBreak($h, $y, $addpage);
     }
 }

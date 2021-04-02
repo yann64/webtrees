@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -55,7 +55,7 @@ class Date
     public $qual2 = '';
 
     /** @var AbstractCalendarDate|null Optional second date */
-    private $date2 = null;
+    private $date2;
 
     /** @var string Optional text, as included with an INTerpreted date */
     private $text = '';
@@ -103,10 +103,10 @@ class Date
      *
      * @param string $date
      *
-     * @throws DomainException
      * @return AbstractCalendarDate
+     * @throws DomainException
      */
-    private function parseDate($date): AbstractCalendarDate
+    private function parseDate(string $date): AbstractCalendarDate
     {
         // Valid calendar escape specified? - use it
         if (preg_match('/^(@#D(?:GREGORIAN|JULIAN|HEBREW|HIJRI|JALALI|FRENCH R|ROMAN)+@) ?(.*)/', $date, $match)) {
@@ -220,7 +220,7 @@ class Date
     /**
      * A list of supported calendars and their names.
      *
-     * @return string[]
+     * @return array<string>
      */
     public static function calendarNames(): array
     {
@@ -260,9 +260,7 @@ class Date
             $CALENDAR_FORMAT = '';
         }
 
-        if ($date_format === null) {
-            $date_format = I18N::dateFormat();
-        }
+        $date_format = $date_format ?? I18N::dateFormat();
 
         if ($convert_calendars) {
             $calendar_format = explode('_and_', $CALENDAR_FORMAT);
@@ -471,124 +469,10 @@ class Date
     }
 
     /**
-     * Calculate the the age of a person (n years), on a given date.
-     *
-     * @param Date $d1
-     * @param Date $d2
-     *
-     * @return int
-     */
-    public static function getAgeYears(Date $d1, Date $d2): int
-    {
-        if (self::compare($d1, $d2) === 0) {
-            // Overlapping dates
-            $jd = $d1->minimumJulianDay();
-        } else {
-            // Non-overlapping dates
-            $jd = $d2->minimumJulianDay();
-        }
-
-        if ($jd && $d1->minimumJulianDay() && $d1->minimumJulianDay() <= $jd) {
-            return $d1->minimumDate()->getAge($jd);
-        }
-
-        return -1;
-    }
-
-    /**
-     * Calculate the the age of a person (n days), on a given date.
-     *
-     * @param Date $d1
-     * @param Date $d2
-     *
-     * @return int
-     */
-    public static function getAgeDays(Date $d1, Date $d2): int
-    {
-        if ($d2->maximumJulianDay() >= $d1->minimumJulianDay() && $d2->minimumJulianDay() <= $d1->maximumJulianDay()) {
-            // Overlapping dates
-            $jd = $d1->minimumJulianDay();
-        } else {
-            // Non-overlapping dates
-            $jd = $d2->minimumJulianDay();
-        }
-
-        // Days - integer only (for sorting, rather than for display)
-        if ($jd && $d1->minimumJulianDay()) {
-            return $jd - $d1->minimumJulianDay();
-        }
-
-        return -1;
-    }
-
-    /**
-     * Calculate the the age of a person, on a date.
-     *
-     * @param Date      $d1
-     * @param Date|null $d2
-     *
-     * @return string
-     */
-    public static function getAge(Date $d1, Date $d2 = null): string
-    {
-        if ($d2 instanceof self) {
-            if ($d2->maximumJulianDay() >= $d1->minimumJulianDay() && $d2->minimumJulianDay() <= $d1->maximumJulianDay()) {
-                // Overlapping dates
-                $jd = $d1->minimumJulianDay();
-            } else {
-                // Non-overlapping dates
-                $jd = $d2->minimumJulianDay();
-            }
-        } else {
-            // If second date not specified, use today’s date
-            $jd = Carbon::now()->julianDay();
-        }
-
-        // Just years, in local digits, with warning for negative/
-        if ($jd && $d1->minimumJulianDay()) {
-            if ($d1->minimumJulianDay() > $jd) {
-                return view('icons/warning');
-            }
-
-            $years = $d1->minimumDate()->getAge($jd);
-
-            return I18N::number($years);
-        }
-
-        return '';
-    }
-
-    /**
-     * Calculate the years/months/days between two events
-     * Return a gedcom style age string: "1y 2m 3d" (for fact details)
-     *
-     * @param Date      $d1
-     * @param Date|null $d2
-     *
-     * @return string
-     */
-    public static function getAgeGedcom(Date $d1, Date $d2 = null): string
-    {
-        if ($d2 === null) {
-            return $d1->date1->getAgeFull(Carbon::now()->julianDay());
-        }
-
-        if (self::compare($d1, $d2) !== 0) {
-            return $d1->date1->getAgeFull($d2->minimumJulianDay());
-        }
-
-        if ($d1->minimumJulianDay() == $d2->minimumJulianDay()) {
-            return '0d';
-        }
-
-        return '';
-    }
-
-    /**
      * Compare two dates, so they can be sorted.
      *
-     * return <0 if $a<$b
-     * return >0 if $b>$a
+     * return -1 if $a<$b
+     * return +1 if $b>$a
      * return  0 if dates same/overlap
      * BEF/AFT sort as the day before/after
      *

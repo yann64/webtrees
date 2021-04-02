@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -42,24 +42,26 @@ class Migration37 implements MigrationInterface
 
         // Split the media table into media/media_file so that we can store multiple media
         // files in each media object.
-        DB::schema()->create('media_file', static function (Blueprint $table): void {
-            $table->integer('id', true);
-            $table->string('m_id', 20);
-            $table->integer('m_file');
-            $table->string('multimedia_file_refn', 248); // GEDCOM only allows 30 characters
-            $table->string('multimedia_format', 4);
-            $table->string('source_media_type', 15);
-            $table->string('descriptive_title', 248);
+        if (!DB::schema()->hasTable('media_file')) {
+            DB::schema()->create('media_file', static function (Blueprint $table): void {
+                $table->integer('id', true);
+                $table->string('m_id', 20);
+                $table->integer('m_file');
+                $table->string('multimedia_file_refn', 248); // GEDCOM only allows 30 characters
+                $table->string('multimedia_format', 4);
+                $table->string('source_media_type', 15);
+                $table->string('descriptive_title', 248);
 
-            $table->index(['m_id', 'm_file']);
-            $table->index(['m_file', 'm_id']);
-            $table->index(['m_file', 'multimedia_file_refn']);
-            $table->index(['m_file', 'multimedia_format']);
-            $table->index(['m_file', 'source_media_type']);
-            $table->index(['m_file', 'descriptive_title']);
-        });
+                $table->index(['m_id', 'm_file']);
+                $table->index(['m_file', 'm_id']);
+                $table->index(['m_file', 'multimedia_file_refn']);
+                $table->index(['m_file', 'multimedia_format']);
+                $table->index(['m_file', 'source_media_type']);
+                $table->index(['m_file', 'descriptive_title']);
+            });
+        }
 
-        if (DB::schema()->hasColumn('media', 'm_filename')) {
+        if (DB::table('media_file')->count() === 0 && DB::schema()->hasColumn('media', 'm_filename')) {
             (new Builder(DB::connection()))->from('media_file')->insertUsing([
                 'm_id',
                 'm_file',

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -20,13 +20,13 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees;
 
 use Closure;
-use Exception;
 use Fisharebest\ExtCalendar\GregorianCalendar;
-use Fisharebest\Webtrees\GedcomCode\GedcomCodePedi;
+use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\Http\RequestHandlers\IndividualPage;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Support\Collection;
-use stdClass;
+
+use function preg_match;
 
 /**
  * A GEDCOM individual (INDI) object.
@@ -34,6 +34,10 @@ use stdClass;
 class Individual extends GedcomRecord
 {
     public const RECORD_TYPE = 'INDI';
+
+    // Placeholders to indicate unknown names
+    public const NOMEN_NESCIO     = '@N.N.';
+    public const PRAENOMEN_NESCIO = '@P.N.';
 
     protected const ROUTE_NAME = IndividualPage::class;
 
@@ -45,32 +49,6 @@ class Individual extends GedcomRecord
 
     /** @var Date The estimated date of death */
     private $estimated_death_date;
-
-    /**
-     * A closure which will create a record from a database row.
-     *
-     * @param Tree $tree
-     *
-     * @return Closure
-     */
-    public static function rowMapper(Tree $tree): Closure
-    {
-        return static function (stdClass $row) use ($tree): Individual {
-            $individual = Individual::getInstance($row->i_id, $tree, $row->i_gedcom);
-            assert($individual instanceof Individual);
-
-            // Some queries include the names table.
-            // For these we must select the specified name.
-            if (($row->n_num ?? null) !== null) {
-                $individual = clone $individual;
-                $individual->setPrimaryName($row->n_num);
-
-                return $individual;
-            }
-
-            return $individual;
-        };
-    }
 
     /**
      * A closure which will compare individuals by birth date.
@@ -92,31 +70,8 @@ class Individual extends GedcomRecord
     public static function deathDateComparator(): Closure
     {
         return static function (Individual $x, Individual $y): int {
-            return Date::compare($x->getEstimatedBirthDate(), $y->getEstimatedBirthDate());
+            return Date::compare($x->getEstimatedDeathDate(), $y->getEstimatedDeathDate());
         };
-    }
-
-    /**
-     * Get an instance of an individual object. For single records,
-     * we just receive the XREF. For bulk records (such as lists
-     * and search results) we can receive the GEDCOM data as well.
-     *
-     * @param string      $xref
-     * @param Tree        $tree
-     * @param string|null $gedcom
-     *
-     * @throws Exception
-     * @return Individual|null
-     */
-    public static function getInstance(string $xref, Tree $tree, string $gedcom = null): ?Individual
-    {
-        $record = parent::getInstance($xref, $tree, $gedcom);
-
-        if ($record instanceof self) {
-            return $record;
-        }
-
-        return null;
     }
 
     /**
@@ -137,7 +92,7 @@ class Individual extends GedcomRecord
             ->get();
 
         foreach ($rows as $row) {
-            self::getInstance($row->xref, $tree, $row->gedcom);
+            Registry::individualFactory()->make($row->xref, $tree, $row->gedcom);
         }
     }
 
@@ -194,8 +149,8 @@ class Individual extends GedcomRecord
             }
         }
         // Consider relationship privacy (unless an admin is applying download restrictions)
-        $user_path_length = (int) $this->tree->getUserPreference(Auth::user(), User::PREF_TREE_PATH_LENGTH);
-        $gedcomid         = $this->tree->getUserPreference(Auth::user(), User::PREF_TREE_ACCOUNT_XREF);
+        $user_path_length = (int) $this->tree->getUserPreference(Auth::user(), UserInterface::PREF_TREE_PATH_LENGTH);
+        $gedcomid         = $this->tree->getUserPreference(Auth::user(), UserInterface::PREF_TREE_ACCOUNT_XREF);
 
         if ($gedcomid !== '' && $user_path_length > 0) {
             return self::isRelated($this, $user_path_length);
@@ -213,11 +168,11 @@ class Individual extends GedcomRecord
      *
      * @return bool
      */
-    private static function isRelated(Individual $target, $distance): bool
+    private static function isRelated(Individual $target, int $distance): bool
     {
         static $cache = null;
 
-        $user_individual = self::getInstance($target->tree->getUserPreference(Auth::user(), User::PREF_TREE_ACCOUNT_XREF), $target->tree);
+        $user_individual = Registry::individualFactory()->make($target->tree->getUserPreference(Auth::user(), UserInterface::PREF_TREE_ACCOUNT_XREF), $target->tree);
         if ($user_individual) {
             if (!$cache) {
                 $cache = [
@@ -302,7 +257,7 @@ class Individual extends GedcomRecord
         // Just show the 1 FAMC/FAMS tag, not any subtags, which may contain private data
         preg_match_all('/\n1 (?:FAMC|FAMS) @(' . Gedcom::REGEX_XREF . ')@/', $this->gedcom, $matches, PREG_SET_ORDER);
         foreach ($matches as $match) {
-            $rela = Family::getInstance($match[1], $this->tree);
+            $rela = Registry::familyFactory()->make($match[1], $this->tree);
             if ($rela && ($SHOW_PRIVATE_RELATIONSHIPS || $rela->canShow($access_level))) {
                 $rec .= $match[0];
             }
@@ -313,22 +268,6 @@ class Individual extends GedcomRecord
         }
 
         return $rec;
-    }
-
-    /**
-     * Fetch data from the database
-     *
-     * @param string $xref
-     * @param int    $tree_id
-     *
-     * @return string|null
-     */
-    protected static function fetchGedcomRecord(string $xref, int $tree_id): ?string
-    {
-        return DB::table('individuals')
-            ->where('i_id', '=', $xref)
-            ->where('i_file', '=', $tree_id)
-            ->value('i_gedcom');
     }
 
     /**
@@ -436,15 +375,15 @@ class Individual extends GedcomRecord
      */
     public function findHighlightedMediaFile(): ?MediaFile
     {
-        foreach ($this->facts(['OBJE']) as $fact) {
-            $media = $fact->target();
-            if ($media instanceof Media) {
-                foreach ($media->mediaFiles() as $media_file) {
-                    if ($media_file->isImage() && !$media_file->isExternal()) {
-                        return $media_file;
-                    }
-                }
-            }
+        $fact = $this->facts(['OBJE'])
+            ->first(static function (Fact $fact): bool {
+                $media = $fact->target();
+
+                return $media instanceof Media && $media->firstImageFile() instanceof MediaFile;
+            });
+
+        if ($fact instanceof Fact && $fact->target() instanceof Media) {
+            return $fact->target()->firstImageFile();
         }
 
         return null;
@@ -461,7 +400,7 @@ class Individual extends GedcomRecord
      *
      * @return string
      */
-    public function displayImage($width, $height, $fit, $attributes): string
+    public function displayImage(int $width, int $height, string $fit, array $attributes): string
     {
         $media_file = $this->findHighlightedMediaFile();
 
@@ -507,16 +446,6 @@ class Individual extends GedcomRecord
     }
 
     /**
-     * Get the year of birth
-     *
-     * @return string the year of birth
-     */
-    public function getBirthYear(): string
-    {
-        return $this->getBirthDate()->minimumDate()->format('%Y');
-    }
-
-    /**
      * Get the date of death
      *
      * @return Date
@@ -547,16 +476,6 @@ class Individual extends GedcomRecord
     }
 
     /**
-     * get the death year
-     *
-     * @return string the year of death
-     */
-    public function getDeathYear(): string
-    {
-        return $this->getDeathDate()->minimumDate()->format('%Y');
-    }
-
-    /**
      * Get the range of years in which a individual lived. e.g. “1870–”, “1870–1920”, “–1920”.
      * Provide the place and full date using a tooltip.
      * For consistent layout in charts, etc., show just a “–” when no dates are known.
@@ -566,18 +485,23 @@ class Individual extends GedcomRecord
      */
     public function lifespan(): string
     {
-        // Just the first part of the place name
+        // Just the first part of the place name.
         $birth_place = strip_tags($this->getBirthPlace()->shortName());
         $death_place = strip_tags($this->getDeathPlace()->shortName());
-        // Remove markup from dates
+
+        // Remove markup from dates.
         $birth_date = strip_tags($this->getBirthDate()->display());
         $death_date = strip_tags($this->getDeathDate()->display());
+
+        // Use minimum and maximum dates - to agree with the age calculations.
+        $birth_year = $this->getBirthDate()->minimumDate()->format('%Y');
+        $death_year = $this->getDeathDate()->maximumDate()->format('%Y');
 
         /* I18N: A range of years, e.g. “1870–”, “1870–1920”, “–1920” */
         return I18N::translate(
             '%1$s–%2$s',
-            '<span title="' . $birth_place . ' ' . $birth_date . '">' . $this->getBirthYear() . '</span>',
-            '<span title="' . $death_place . ' ' . $death_date . '">' . $this->getDeathYear() . '</span>'
+            '<span title="' . $birth_place . ' ' . $birth_date . '">' . $birth_year . '</span>',
+            '<span title="' . $death_place . ' ' . $death_date . '">' . $death_year . '</span>'
         );
     }
 
@@ -589,9 +513,10 @@ class Individual extends GedcomRecord
     public function getAllBirthDates(): array
     {
         foreach (Gedcom::BIRTH_EVENTS as $event) {
-            $tmp = $this->getAllEventDates([$event]);
-            if ($tmp) {
-                return $tmp;
+            $dates = $this->getAllEventDates([$event]);
+
+            if ($dates !== []) {
+                return $dates;
             }
         }
 
@@ -607,6 +532,7 @@ class Individual extends GedcomRecord
     {
         foreach (Gedcom::BIRTH_EVENTS as $event) {
             $places = $this->getAllEventPlaces([$event]);
+
             if ($places !== []) {
                 return $places;
             }
@@ -623,9 +549,10 @@ class Individual extends GedcomRecord
     public function getAllDeathDates(): array
     {
         foreach (Gedcom::DEATH_EVENTS as $event) {
-            $tmp = $this->getAllEventDates([$event]);
-            if ($tmp) {
-                return $tmp;
+            $dates = $this->getAllEventDates([$event]);
+
+            if ($dates !== []) {
+                return $dates;
             }
         }
 
@@ -641,6 +568,7 @@ class Individual extends GedcomRecord
     {
         foreach (Gedcom::DEATH_EVENTS as $event) {
             $places = $this->getAllEventPlaces([$event]);
+
             if ($places !== []) {
                 return $places;
             }
@@ -781,22 +709,6 @@ class Individual extends GedcomRecord
     }
 
     /**
-     * Generate the CSS class to be used for drawing this individual
-     *
-     * @return string
-     */
-    public function getBoxStyle(): string
-    {
-        $tmp = [
-            'M' => '',
-            'F' => 'F',
-            'U' => 'NN',
-        ];
-
-        return 'person_box' . $tmp[$this->sex()];
-    }
-
-    /**
      * Get a list of this individual’s spouse families
      *
      * @param int|null $access_level
@@ -908,7 +820,9 @@ class Individual extends GedcomRecord
             }
         }
 
-        return $step_families->unique();
+        return $step_families->uniqueStrict(static function (Family $family): string {
+            return $family->xref();
+        });
     }
 
     /**
@@ -924,7 +838,7 @@ class Individual extends GedcomRecord
         foreach ($families as $family) {
             $spouse = $family->spouse($this);
 
-            if ($spouse instanceof Individual) {
+            if ($spouse instanceof self) {
                 foreach ($family->spouse($this)->spouseFamilies() as $step_family) {
                     if (!$families->containsStrict($step_family)) {
                         $step_families[] = $step_family;
@@ -945,13 +859,19 @@ class Individual extends GedcomRecord
      */
     public function getChildFamilyLabel(Family $family): string
     {
-        if (preg_match('/\n1 FAMC @' . $family->xref() . '@(?:\n[2-9].*)*\n2 PEDI (.+)/', $this->gedcom(), $match)) {
-            // A specified pedigree
-            return GedcomCodePedi::getChildFamilyLabel($match[1]);
-        }
+        preg_match('/\n1 FAMC @' . $family->xref() . '@(?:\n[2-9].*)*\n2 PEDI (.+)/', $this->gedcom(), $match);
 
-        // Default (birth) pedigree
-        return GedcomCodePedi::getChildFamilyLabel('');
+        $values = [
+            'birth'   => I18N::translate('Family with parents'),
+            'adopted' => I18N::translate('Family with adoptive parents'),
+            'foster'  => I18N::translate('Family with foster parents'),
+            'sealing' => /* I18N: “sealing” is a Mormon ceremony. */
+                I18N::translate('Family with sealing parents'),
+            'rada'    => /* I18N: “rada” is an Arabic word, pronounced “ra DAH”. It is child-to-parent pedigree, established by wet-nursing. */
+                I18N::translate('Family with rada parents'),
+        ];
+
+        return $values[$match[1] ?? 'birth'] ?? $values['birth'];
     }
 
     /**
@@ -1055,12 +975,12 @@ class Individual extends GedcomRecord
      * 2 SURN Vasquez,Sante
      *
      * @param string $type
-     * @param string $full
+     * @param string $value
      * @param string $gedcom
      *
      * @return void
      */
-    protected function addName(string $type, string $full, string $gedcom): void
+    protected function addName(string $type, string $value, string $gedcom): void
     {
         ////////////////////////////////////////////////////////////////////////////
         // Extract the structured name parts - use for "sortable" names and indexes
@@ -1069,7 +989,6 @@ class Individual extends GedcomRecord
         $sublevel = 1 + (int) substr($gedcom, 0, 1);
         $GIVN     = preg_match("/\n{$sublevel} GIVN (.+)/", $gedcom, $match) ? $match[1] : '';
         $SURN     = preg_match("/\n{$sublevel} SURN (.+)/", $gedcom, $match) ? $match[1] : '';
-        $NICK     = preg_match("/\n{$sublevel} NICK (.+)/", $gedcom, $match) ? $match[1] : '';
 
         // SURN is an comma-separated list of surnames...
         if ($SURN !== '') {
@@ -1086,12 +1005,12 @@ class Individual extends GedcomRecord
         ////////////////////////////////////////////////////////////////////////////
 
         // Fix bad slashes. e.g. 'John/Smith' => 'John/Smith/'
-        if (substr_count($full, '/') % 2 === 1) {
-            $full .= '/';
+        if (substr_count($value, '/') % 2 === 1) {
+            $value .= '/';
         }
 
         // GEDCOM uses "//" to indicate an unknown surname
-        $full = preg_replace('/\/\//', '/@N.N./', $full);
+        $full = preg_replace('/\/\//', '/@N.N./', $value);
 
         // Extract the surname.
         // Note, there may be multiple surnames, e.g. Jean /Vasquez/ y /Cortes/
@@ -1141,16 +1060,9 @@ class Individual extends GedcomRecord
 
         // Add placeholder for unknown given name
         if (!$GIVN) {
-            $GIVN = '@P.N.';
+            $GIVN = self::PRAENOMEN_NESCIO;
             $pos  = (int) strpos($full, '/');
             $full = substr($full, 0, $pos) . '@P.N. ' . substr($full, $pos);
-        }
-
-        // GEDCOM 5.5.1 nicknames should be specificied in a NICK field
-        // GEDCOM 5.5   nicknames should be specified in the NAME field, surrounded by quotes
-        if ($NICK && strpos($full, '"' . $NICK . '"') === false) {
-            // A NICK field is present, but not included in the NAME.  Show it at the end.
-            $full .= ' "' . $NICK . '"';
         }
 
         // Remove slashes - they don’t get displayed
@@ -1159,13 +1071,13 @@ class Individual extends GedcomRecord
         $fullNN = str_replace('/', '', $full);
 
         // Insert placeholders for any missing/unknown names
-        $full = str_replace('@N.N.', I18N::translateContext('Unknown surname', '…'), $full);
-        $full = str_replace('@P.N.', I18N::translateContext('Unknown given name', '…'), $full);
+        $full = str_replace(self::NOMEN_NESCIO, I18N::translateContext('Unknown surname', '…'), $full);
+        $full = str_replace(self::PRAENOMEN_NESCIO, I18N::translateContext('Unknown given name', '…'), $full);
         // Format for display
         $full = '<span class="NAME" dir="auto" translate="no">' . preg_replace('/\/([^\/]*)\//', '<span class="SURN">$1</span>', e($full)) . '</span>';
         // Localise quotation marks around the nickname
         $full = preg_replace_callback('/&quot;([^&]*)&quot;/', static function (array $matches): string {
-            return I18N::translate('“%s”', $matches[1]);
+            return '<q class="wt-nickname">' . $matches[1] . '</q>';
         }, $full);
 
         // A suffix of “*” indicates a preferred name
@@ -1227,5 +1139,17 @@ class Individual extends GedcomRecord
         return
             $this->formatFirstMajorFact(Gedcom::BIRTH_EVENTS, 1) .
             $this->formatFirstMajorFact(Gedcom::DEATH_EVENTS, 1);
+    }
+
+    /**
+     * Lock the database row, to prevent concurrent edits.
+     */
+    public function lock(): void
+    {
+        DB::table('individuals')
+            ->where('i_file', '=', $this->tree->id())
+            ->where('i_id', '=', $this->xref())
+            ->lockForUpdate()
+            ->get();
     }
 }

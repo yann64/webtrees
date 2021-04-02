@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -22,6 +22,7 @@ namespace Fisharebest\Webtrees;
 use Illuminate\Database\Capsule\Manager as DB;
 use Psr\Http\Message\ServerRequestInterface;
 use SessionHandlerInterface;
+use stdClass;
 
 /**
  * Session handling - stores sessions in the database.
@@ -30,6 +31,9 @@ class SessionDatabaseHandler implements SessionHandlerInterface
 {
     /** @var ServerRequestInterface */
     private $request;
+
+    /** @var stdClass|null The row from the session table */
+    private $row;
 
     public function __construct(ServerRequestInterface $request)
     {
@@ -56,46 +60,79 @@ class SessionDatabaseHandler implements SessionHandlerInterface
     }
 
     /**
-     * @param string $id
+     * @param string $session_id
      *
      * @return string
      */
-    public function read($id): string
+    public function read($session_id): string
     {
-        return (string) DB::table('session')
-            ->where('session_id', '=', $id)
-            ->value('session_data');
+        $this->row = DB::table('session')
+            ->where('session_id', '=', $session_id)
+            ->first();
+
+
+        return $this->row->session_data ?? '';
     }
 
     /**
-     * @param string $id
-     * @param string $data
+     * @param string $session_id
+     * @param string $session_data
      *
      * @return bool
      */
-    public function write($id, $data): bool
+    public function write($session_id, $session_data): bool
     {
-        DB::table('session')->updateOrInsert([
-            'session_id' => $id,
-        ], [
-            'session_time' => Carbon::now(),
-            'user_id'      => (int) Auth::id(),
-            'ip_address'   => $this->request->getAttribute('client-ip'),
-            'session_data' => $data,
-        ]);
+        $ip_address   = $this->request->getAttribute('client-ip');
+        $session_time = Carbon::now();
+        $user_id      = (int) Auth::id();
+
+        if ($this->row === null) {
+            DB::table('session')->insert([
+                'session_id'   => $session_id,
+                'session_time' => $session_time,
+                'user_id'      => $user_id,
+                'ip_address'   => $ip_address,
+                'session_data' => $session_data,
+            ]);
+        } else {
+            $updates = [];
+
+            // The user ID can change if we masquerade as another user.
+            if ((int) $this->row->user_id !== $user_id) {
+                $updates['user_id'] = $user_id;
+            }
+
+            if ($this->row->ip_address !== $ip_address) {
+                $updates['ip_address'] = $ip_address;
+            }
+
+            if ($this->row->session_data !== $session_data) {
+                $updates['session_data'] = $session_data;
+            }
+
+            if ($session_time->subMinute()->gt($this->row->session_time)) {
+                $updates['session_time'] = $session_time;
+            }
+
+            if ($updates !== []) {
+                DB::table('session')
+                    ->where('session_id', '=', $session_id)
+                    ->update($updates);
+            }
+        }
 
         return true;
     }
 
     /**
-     * @param string $id
+     * @param string $session_id
      *
      * @return bool
      */
-    public function destroy($id): bool
+    public function destroy($session_id): bool
     {
         DB::table('session')
-            ->where('session_id', '=', $id)
+            ->where('session_id', '=', $session_id)
             ->delete();
 
         return true;

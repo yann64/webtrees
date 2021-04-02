@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2021 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -12,12 +12,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
 
 namespace Fisharebest\Webtrees\Services;
+
+use function str_starts_with;
+use function strlen;
+use function substr;
 
 /**
  * Convert to and from Roman Numerals
@@ -76,7 +80,7 @@ class RomanNumeralsService
     {
         $num = 0;
         foreach (self::ROMAN_NUMERALS as $key => $value) {
-            while (strpos($roman, $value) === 0) {
+            while (str_starts_with($roman, $value)) {
                 $num += $key;
                 $roman = substr($roman, strlen($value));
             }
